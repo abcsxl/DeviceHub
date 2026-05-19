@@ -8,9 +8,32 @@ namespace DeviceHub.Service.Api.WebSocket;
 
 public static class WebSocketHandler
 {
-    private static readonly ConcurrentDictionary<Guid, System.Net.WebSockets.WebSocket> _connections = new();
+    private static readonly ConcurrentDictionary<Guid, (System.Net.WebSockets.WebSocket Socket, DateTime LastPong)> _connections = new();
 
     public static int ConnectionCount => _connections.Count;
+
+    internal static IEnumerable<KeyValuePair<Guid, System.Net.WebSockets.WebSocket>> ActiveConnections
+        => _connections
+            .Where(kvp => kvp.Value.Socket.State == WebSocketState.Open)
+            .Select(kvp => new KeyValuePair<Guid, System.Net.WebSockets.WebSocket>(kvp.Key, kvp.Value.Socket));
+
+    internal static void RemoveConnection(Guid id)
+    {
+        _connections.TryRemove(id, out _);
+    }
+
+    internal static bool TryUpdatePingTime(Guid id)
+    {
+        if (_connections.TryGetValue(id, out var entry) && entry.Socket.State == WebSocketState.Open)
+        {
+            var now = DateTime.UtcNow;
+            if (now - entry.LastPong > TimeSpan.FromSeconds(35))
+                return false;
+
+            return true;
+        }
+        return false;
+    }
 
     public static WebApplication MapWebSocketHandler(this WebApplication app, string path = "/ws")
     {
@@ -25,7 +48,7 @@ public static class WebSocketHandler
 
             var ws = await context.WebSockets.AcceptWebSocketAsync();
             var connectionId = Guid.NewGuid();
-            _connections.TryAdd(connectionId, ws);
+            _connections.TryAdd(connectionId, (ws, DateTime.UtcNow));
 
             try
             {
@@ -56,13 +79,13 @@ public static class WebSocketHandler
         var bytes = Encoding.UTF8.GetBytes(payload);
         var segment = new ArraySegment<byte>(bytes);
 
-        foreach (var (id, ws) in _connections)
+        foreach (var (id, (socket, _)) in _connections)
         {
-            if (ws.State == WebSocketState.Open)
+            if (socket.State == WebSocketState.Open)
             {
                 try
                 {
-                    await ws.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+                    await socket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
                 }
                 catch
                 {
@@ -89,12 +112,12 @@ public static class WebSocketHandler
             if (result.MessageType == WebSocketMessageType.Text)
             {
                 var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                await HandleTextMessageAsync(ws, json, services);
+                await HandleTextMessageAsync(connectionId, ws, json, services);
             }
         }
     }
 
-    private static async Task HandleTextMessageAsync(System.Net.WebSockets.WebSocket ws, string json, IServiceProvider services)
+    private static async Task HandleTextMessageAsync(Guid connectionId, System.Net.WebSockets.WebSocket ws, string json, IServiceProvider services)
     {
         try
         {
@@ -102,7 +125,11 @@ public static class WebSocketHandler
             var root = doc.RootElement;
 
             if (root.TryGetProperty("type", out var typeEl) && typeEl.GetString() == "pong")
+            {
+                if (_connections.TryGetValue(connectionId, out var entry))
+                    _connections.TryUpdate(connectionId, (entry.Socket, DateTime.UtcNow), entry);
                 return;
+            }
 
             var requestId = root.TryGetProperty("requestId", out var rid)
                 ? rid.GetString()

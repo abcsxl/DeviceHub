@@ -25,6 +25,16 @@ public class AppConfig
 
     public AppConfig Merge(AppConfig update)
     {
+        var mergedDrivers = new Dictionary<string, DriverConfig>(Drivers);
+        if (update.Drivers != null)
+        {
+            foreach (var (key, value) in update.Drivers)
+            {
+                if (mergedDrivers.ContainsKey(key))
+                    mergedDrivers[key] = value;
+            }
+        }
+
         return new AppConfig
         {
             ConfigVersion = ConfigVersion + 1,
@@ -37,7 +47,7 @@ public class AppConfig
             {
                 RingBufferSize = update.Logging?.RingBufferSize ?? Logging.RingBufferSize
             },
-            Drivers = new Dictionary<string, DriverConfig>(Drivers)
+            Drivers = mergedDrivers
         };
     }
 }
