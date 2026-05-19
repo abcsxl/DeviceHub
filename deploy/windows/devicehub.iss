@@ -70,36 +70,14 @@ begin
   end;
 end;
 
-function StartServiceWithRetry: Boolean;
-var
-  RetryCount: Integer;
-  ResultCode: Integer;
-begin
-  Result := False;
-  for RetryCount := 1 to 5 do
-  begin
-    if Exec('sc', 'start DeviceHub', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-    begin
-      if ResultCode = 0 then
-      begin
-        Result := True;
-        Exit;
-      end;
-    end;
-    if RetryCount < 5 then
-      Exec('timeout', '/t 2 /nobreak', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
-end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ConfigPath: String;
   Lines: TArrayOfString;
+  ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
-    StartServiceWithRetry;
-
     ConfigPath := ExpandConstant('{app}\appsettings.json');
     if FileExists(ConfigPath) then
     begin
@@ -113,5 +91,11 @@ begin
         SaveStringsToFile(ConfigPath, Lines, False);
       end;
     end;
+  end;
+
+  if CurStep = ssDone then
+  begin
+    if MsgBox('安装完成，重启计算机生效。是否立即重启？', mbInformation, MB_YESNO) = IDYES then
+      Exec('shutdown', '/r /t 0', '', SW_SHOW, ewWaitUntilTerminated, ConfigPath);
   end;
 end;
