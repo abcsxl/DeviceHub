@@ -96,6 +96,6 @@ begin
   if CurStep = ssDone then
   begin
     if MsgBox('安装完成，重启计算机生效。是否立即重启？', mbInformation, MB_YESNO) = IDYES then
-      Exec('shutdown', '/r /t 0', '', SW_SHOW, ewWaitUntilTerminated, ConfigPath);
+      Exec('shutdown', '/r /t 0', '', SW_SHOW, ewWaitUntilTerminated, ResultCode);
   end;
 end;
