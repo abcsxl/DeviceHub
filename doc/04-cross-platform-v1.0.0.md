@@ -49,6 +49,20 @@ public static class PlatformDetector
 
 ---
 
+## 跨平台配套脚本
+
+| 目录 | 文件 | 用途 |
+|------|------|------|
+| `deploy/ubuntu/` | `devicehub.service` | systemd 服务单元 |
+| `deploy/ubuntu/` | `install.sh` | Linux 一键安装 |
+| `deploy/ubuntu/` | `publish.sh` | Linux 本地发布打包 |
+| `deploy/windows/` | `devicehub.iss` | Inno Setup 安装脚本 |
+| `deploy/windows/` | `publish.ps1` | Windows 本地发布打包 |
+
+详情见 `doc/03-packaging-v1.0.0.md`。
+
+---
+
 ## 版本历史
-- v1.0.0 (2026-05-19): 初版，补充服务管理命令
+- v1.0.0 (2026-05-19): 初版，补充服务管理命令 + deploy/ 配套脚本
 ```

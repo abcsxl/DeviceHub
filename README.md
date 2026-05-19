@@ -1,6 +1,6 @@
 # DeviceHub
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/abcsxl/DeviceHub/build.yml)](https://github.com/abcsxl/DeviceHub/actions)
+[![Build](https://github.com/abcsxl/DeviceHub/actions/workflows/build.yml/badge.svg)](https://github.com/abcsxl/DeviceHub/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT)
 [![GitHub Release](https://img.shields.io/github/v/release/abcsxl/DeviceHub)](https://github.com/abcsxl/DeviceHub/releases)
 
@@ -11,9 +11,13 @@
 ```
 DeviceHub.slnx
 src/
-├── DeviceHub.Devices.Contracts/   # 抽象接口 + DTO + 配置模型
-├── DeviceHub.Devices.PcscReader/  # PCSC 读卡器实现
-└── DeviceHub.Service.Api/         # Minimal APIs 主程序
+├── DeviceHub.Devices.Contracts/    # 抽象接口 + DTO + 配置模型
+├── DeviceHub.Devices.PcscReader/   # PCSC 读卡器实现
+└── DeviceHub.Service.Api/          # Minimal APIs 主程序
+deploy/
+├── windows/                        # Inno Setup 安装脚本
+└── ubuntu/                         # systemd 服务 + 安装脚本
+.github/workflows/                  # CI/CD (build + release)
 ```
 
 ## 运行
@@ -35,9 +39,14 @@ dotnet run --project src/DeviceHub.Service.Api --urls http://localhost:5000
 
 ## 发布
 
+发布到 GitHub Releases（推 tag 自动构建）：
+
 ```bash
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+git tag v1.0.0
+git push origin v1.0.0
 ```
+
+Windows 安装包和 Linux tar.gz 自动生成并上传到 Release 页面。详见 `doc/03-packaging-v1.0.0.md`。
 
 ## 协议
 
