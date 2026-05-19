@@ -30,8 +30,6 @@
 - API 规范：`doc/02-api-specification-v1.0.0.md`
 - 部署打包：`doc/03-packaging-v1.0.0.md`
 - 跨平台/国产化：`doc/04-cross-platform-v1.0.0.md`
-- 当前批次任务：`doc/05-tasks.md`
-
 ## 代码规范
 - 命名空间 `DeviceHub.*`；异步方法 `Async` 后缀（如 `TransmitAsync`）
 - 日志：`ILogger<T>` 记录启动/停止/错误/硬件事件
@@ -40,8 +38,7 @@
 - 一次性交干净代码，不留明显可预见的缺陷
 
 ## 实施流程
-1. 阅读 `doc/05-tasks.md`，了解本轮任务
-2. 阅读相关设计文档（`doc/01-architecture-v1.0.0.md` 等）
+1. 阅读相关设计文档（`doc/01-architecture-v1.0.0.md` 等）
 3. 输出修改方案（文件 → 改动点 → 预期结果）
 4. **等待用户确认后才实施**（流程：方案 → 确认 → 实施）
 5. 不自动执行 git add/commit/push，先询问
