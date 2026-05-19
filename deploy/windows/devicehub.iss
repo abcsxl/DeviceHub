@@ -28,20 +28,19 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 PrivilegesRequired=admin
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Types]
-Name: "full"; Description: "完整安装（含所有支持的硬件驱动）"
-Name: "custom"; Description: "自定义安装"; Flags: iscustom
+Name: "full"; Description: "Full installation (all hardware drivers)"
+Name: "custom"; Description: "Custom installation"; Flags: iscustom
 
 [Components]
 Name: "pcsc"; Description: "PCSC 读卡器支持"; Types: full custom; Flags: disablenouninstallwarning
 Name: "main"; Description: "核心服务"; Types: full custom; Flags: fixed disablenouninstallwarning
 
 [Files]
-Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs; Components: main
-Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs; Components: pcsc
+Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--install"; Flags: runhidden; StatusMsg: "正在注册 Windows 服务..."
