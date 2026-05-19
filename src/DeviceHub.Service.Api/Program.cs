@@ -1,3 +1,4 @@
+using DeviceHub.Devices.Contracts;
 using DeviceHub.Devices.PcscReader;
 using DeviceHub.Service.Api.Endpoints;
 using DeviceHub.Service.Api.Models;
@@ -22,6 +23,7 @@ builder.Services.AddSingleton<DriverRegistry>();
 builder.Services.AddSingleton<ServiceState>();
 
 builder.Services.AddPcscService(builder.Configuration);
+builder.Services.AddHostedService<PingService>();
 
 builder.Services.AddCors(options =>
 {
@@ -36,6 +38,12 @@ app.UseWebSockets(new WebSocketOptions
 {
     KeepAliveInterval = TimeSpan.FromSeconds(30)
 });
+
+var pcscService = app.Services.GetRequiredService<IPcscService>();
+pcscService.CardStatusChanged += (_, args) =>
+{
+    _ = WebSocketHandler.SendEventAsync("pcsc", "card_status_changed", args);
+};
 
 app.MapStatusEndpoints()
    .MapConfigEndpoints()

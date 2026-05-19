@@ -11,7 +11,7 @@ public class PcscService : IPcscService, IDisposable
     private readonly ILogger<PcscService> _logger;
     private nint _context;
     private HardwareStatus _status = HardwareStatus.Stopped;
-    private readonly HashSet<string> _lastReaders = [];
+    private readonly Dictionary<string, bool> _lastReaderStates = [];
     private CancellationTokenSource? _monitorCts;
     private Thread? _monitorThread;
 
@@ -241,36 +241,36 @@ public class PcscService : IPcscService, IDisposable
         {
             try
             {
-                var currentReaders = new HashSet<string>(GetReaderNames());
+                var currentReaderNames = GetReaderNames();
 
-                foreach (var reader in currentReaders)
+                foreach (var name in currentReaderNames)
                 {
-                    if (!_lastReaders.Contains(reader))
+                    if (!_lastReaderStates.ContainsKey(name))
                     {
-                        _lastReaders.Add(reader);
-                        _logger.LogInformation("新读卡器接入: {Reader}", reader);
+                        _lastReaderStates[name] = false;
+                        _logger.LogInformation("新读卡器接入: {Reader}", name);
                     }
                 }
 
-                foreach (var reader in _lastReaders.ToList())
+                foreach (var name in _lastReaderStates.Keys.ToList())
                 {
-                    if (!currentReaders.Contains(reader))
+                    if (!currentReaderNames.Contains(name))
                     {
-                        _lastReaders.Remove(reader);
-                        _logger.LogInformation("读卡器移除: {Reader}", reader);
+                        _lastReaderStates.Remove(name);
+                        _logger.LogInformation("读卡器移除: {Reader}", name);
                     }
                 }
 
-                foreach (var reader in currentReaders)
+                foreach (var name in currentReaderNames)
                 {
-                    var info = GetReaderInfoInternal(reader);
-                    var wasPresent = _lastReaders.Contains(reader)
-                        && GetReaderInfoInternal(reader).IsCardPresent;
+                    var info = GetReaderInfoInternal(name);
+                    var wasPresent = _lastReaderStates.TryGetValue(name, out var prev) && prev;
 
                     if (info.IsCardPresent != wasPresent)
                     {
+                        _lastReaderStates[name] = info.IsCardPresent;
                         CardStatusChanged?.Invoke(this,
-                            new CardStatusEventArgs(reader,
+                            new CardStatusEventArgs(name,
                                 wasPresent ? "card_present" : "empty",
                                 info.IsCardPresent ? "card_present" : "empty"));
                     }

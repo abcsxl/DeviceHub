@@ -51,22 +51,40 @@ Filename: "net"; Parameters: "stop DeviceHub"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--uninstall"; Flags: runhidden
 
 [Code]
+procedure SetDriverEnabled(var Lines: TArrayOfString; const SectionName, EnabledStr: String);
+var
+  i: Integer;
+begin
+  for i := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    if Pos('"' + SectionName + '":', Lines[i]) > 0 then
+    begin
+      if i + 1 < GetArrayLength(Lines) then
+        StringChangeEx(Lines[i + 1], '"Enabled": false', '"Enabled": ' + EnabledStr, False);
+      Break;
+    end;
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ConfigPath: String;
-  ConfigJson: String;
+  Lines: TArrayOfString;
 begin
   if CurStep = ssPostInstall then
   begin
     ConfigPath := ExpandConstant('{app}\appsettings.json');
     if FileExists(ConfigPath) then
     begin
-      ConfigJson := '';
-      if IsComponentSelected('pcsc') then
-        ConfigJson := '{"Drivers":{"Pcsc":{"Enabled":true}}}'
-      else
-        ConfigJson := '{"Drivers":{"Pcsc":{"Enabled":false}}}';
-      SaveStringToFile(ConfigPath, ConfigJson, False);
+      if LoadStringsFromFile(ConfigPath, Lines) then
+      begin
+        if IsComponentSelected('pcsc') then
+          SetDriverEnabled(Lines, 'Pcsc', 'true')
+        else
+          SetDriverEnabled(Lines, 'Pcsc', 'false');
+
+        SaveStringsToFile(ConfigPath, Lines, False);
+      end;
     end;
   end;
 end;
