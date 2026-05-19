@@ -11,9 +11,13 @@
   #define PublishDir "..\..\src\DeviceHub.Service.Api\bin\Release\net10.0\win-x64\publish"
 #endif
 
+[LangOptions]
+chinesesimplified.DialogFontName=Microsoft YaHei
+chinesesimplified.WelcomeFontName=Microsoft YaHei
+chinesesimplified.TitleFontName=Microsoft YaHei
+
 [Setup]
 AppId={{B8F4A23A-8F3C-4A7C-9C5E-1D2E3F4A5B6C}
-WizardStyle=modern
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -45,7 +49,6 @@ Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Run]
 Filename: "sc"; Parameters: "create DeviceHub binPath= ""{app}\{#MyAppExeName}"" start= auto"; Flags: runhidden; StatusMsg: "正在注册 Windows 服务..."
-Filename: "net"; Parameters: "start DeviceHub"; Flags: runhidden; StatusMsg: "正在启动服务..."
 
 [UninstallRun]
 Filename: "net"; Parameters: "stop DeviceHub"; Flags: runhidden
@@ -67,6 +70,27 @@ begin
   end;
 end;
 
+function StartServiceWithRetry: Boolean;
+var
+  RetryCount: Integer;
+  ResultCode: Integer;
+begin
+  Result := False;
+  for RetryCount := 1 to 5 do
+  begin
+    if Exec('sc', 'start DeviceHub', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    begin
+      if ResultCode = 0 then
+      begin
+        Result := True;
+        Exit;
+      end;
+    end;
+    if RetryCount < 5 then
+      Exec('timeout', '/t 2 /nobreak', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ConfigPath: String;
@@ -74,6 +98,8 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
+    StartServiceWithRetry;
+
     ConfigPath := ExpandConstant('{app}\appsettings.json');
     if FileExists(ConfigPath) then
     begin
