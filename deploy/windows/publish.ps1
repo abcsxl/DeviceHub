@@ -26,6 +26,7 @@ Write-Host ""
 Write-Host "[1/3] 发布项目..." -ForegroundColor Green
 dotnet publish "$RepoRoot\src\DeviceHub.Service.Api" `
   -c $Configuration -r $Runtime --self-contained true `
+  /p:Version="$Version" `
   -o $PublishDir
 
 if ($LASTEXITCODE -ne 0) { throw "发布失败" }
