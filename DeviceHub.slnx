@@ -1,2 +1,10 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="AGENTS.md" />
+    <File Path="LICENSE.txt" />
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="src\DeviceHub.Devices.Contracts\DeviceHub.Devices.Contracts.csproj" />
+  <Project Path="src\DeviceHub.Devices.PcscReader\DeviceHub.Devices.PcscReader.csproj" />
+  <Project Path="src\DeviceHub.Service.Api\DeviceHub.Service.Api.csproj" />
 </Solution>
