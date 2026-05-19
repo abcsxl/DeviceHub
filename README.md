@@ -1,7 +1,7 @@
 # DeviceHub
 
 ![Build Status](https://travis-ci.org/user/repo.svg)
-![License](https://img.shields.io/badge/license-Six%20Labs%20Split-blue)
+[![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT)
 
 硬件设备网关服务，将 PCSC 读卡器、证卡打印机、身份证读卡器等硬件能力抽象为 REST API + WebSocket。
 
