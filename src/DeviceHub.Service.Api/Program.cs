@@ -39,11 +39,21 @@ app.UseWebSockets(new WebSocketOptions
     KeepAliveInterval = TimeSpan.FromSeconds(30)
 });
 
-var pcscService = app.Services.GetRequiredService<IPcscService>();
-pcscService.CardStatusChanged += (_, args) =>
+var registry = app.Services.GetRequiredService<DriverRegistry>();
+
+try
 {
-    _ = WebSocketHandler.SendEventAsync("pcsc", "card_status_changed", args);
-};
+    var pcscService = app.Services.GetRequiredService<IPcscService>();
+    registry.Register("PcscReader", pcscService);
+    pcscService.CardStatusChanged += (_, args) =>
+    {
+        _ = WebSocketHandler.SendEventAsync("pcsc", "card_status_changed", args);
+    };
+}
+catch (InvalidOperationException)
+{
+    // PCSC driver 未启用，跳过注册
+}
 
 app.MapStatusEndpoints()
    .MapConfigEndpoints()
