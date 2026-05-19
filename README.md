@@ -34,8 +34,20 @@ dotnet run --project src/DeviceHub.Service.Api --urls http://localhost:5000
 | `doc/02-api-specification-v1.0.0.md` | REST + WebSocket 接口规范 |
 | `doc/03-packaging-v1.0.0.md` | Windows / Linux 部署打包 |
 | `doc/04-cross-platform-v1.0.0.md` | 跨平台注意事项 |
-| `doc/06-testing-v1.0.0.md` | 测试指南 |
-| `doc/05-tasks.md` | 任务追踪 |
+| `doc/05-testing-v1.0.0.md` | 测试指南 |
+
+## 快速体验
+
+```bash
+# 启动后端
+dotnet run --project src/DeviceHub.Service.Api --urls http://localhost:5000
+
+# 启动 Demo 页面（另开终端）
+cd demo
+npm install
+npm run dev
+# → 浏览器打开 http://localhost:3000
+```
 
 ## 发布
 
