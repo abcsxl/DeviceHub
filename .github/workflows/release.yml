@@ -1,0 +1,169 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'tag (e.g., v1.2.3, staging, dev-20260104)'
+        required: true
+        default: 'latest'
+      reason:
+        description: 'Reason for manual publish'
+        required: false
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_VERSION: 10.0.x
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Set tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name || github.event.inputs.tag }}"
+          "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $ver = $tag -replace '^v', ''
+          "VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Publish
+        run: |
+          dotnet publish src\DeviceHub.Service.Api `
+            -c Release -r win-x64 --self-contained true `
+            -o output\publish\win-x64
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress --limit-output
+
+      - name: Build installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            deploy\windows\devicehub.iss `
+            /DMyAppVersion="$env:VERSION" `
+            /DPublishDir="$pwd\output\publish\win-x64" `
+            /O"$pwd\output"
+
+      - name: Compute hash
+        shell: pwsh
+        run: |
+          $exe = "output\DeviceHub-Setup-$env:VERSION.exe"
+          $hash = Get-FileHash $exe -Algorithm SHA256
+          "$($hash.Hash.ToLower()) *$(Split-Path $exe -Leaf)" | Out-File "$exe.sha256" -Encoding ASCII
+          Write-Host "SHA256: $($hash.Hash.ToLower())"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-x64
+          path: output\DeviceHub-Setup-*.*
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Set tag
+        run: |
+          tag="${{ github.event.release.tag_name || github.event.inputs.tag }}"
+          echo "TAG=$tag" >> $GITHUB_ENV
+          ver=$(echo "$tag" | sed 's/^v//')
+          echo "VERSION=$ver" >> $GITHUB_ENV
+
+      - name: Publish
+        run: |
+          dotnet publish src/DeviceHub.Service.Api \
+            -c Release -r linux-x64 --self-contained true \
+            -o output/publish/linux-x64
+
+      - name: Package
+        run: |
+          pkgdir="output/devicehub-$VERSION"
+          mkdir -p "$pkgdir"
+          cp -r output/publish/linux-x64/* "$pkgdir/"
+          cp deploy/ubuntu/devicehub.service "$pkgdir/"
+          cp deploy/ubuntu/install.sh "$pkgdir/"
+          chmod +x "$pkgdir/install.sh"
+          cd output
+          tar czf "DeviceHub-$VERSION-linux-x64.tar.gz" "devicehub-$VERSION"
+          sha256sum "DeviceHub-$VERSION-linux-x64.tar.gz" > "DeviceHub-$VERSION-linux-x64.tar.gz.sha256"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: output/DeviceHub-*.tar.gz*
+
+  release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Set tag
+        run: |
+          tag="${{ github.event.release.tag_name || github.event.inputs.tag }}"
+          echo "TAG=$tag" >> $GITHUB_ENV
+          ver=$(echo "$tag" | sed 's/^v//')
+          echo "VERSION=$ver" >> $GITHUB_ENV
+
+      - name: Generate versions.json
+        run: |
+          repo="${{ github.repository }}"
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > versions.json <<EOF
+          {
+            "version": "$VERSION",
+            "pubTime": "$timestamp",
+            "platforms": {
+              "win-x64": {
+                "url": "https://github.com/$repo/releases/download/$TAG/DeviceHub-Setup-$VERSION.exe",
+                "hash": "$(cat win-x64/*.sha256 | cut -d' ' -f1)"
+              },
+              "linux-x64": {
+                "url": "https://github.com/$repo/releases/download/$TAG/DeviceHub-$VERSION-linux-x64.tar.gz",
+                "hash": "$(cat linux-x64/*.sha256 | cut -d' ' -f1)"
+              }
+            }
+          }
+          EOF
+
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$TAG" \
+            win-x64/DeviceHub-Setup-* \
+            linux-x64/DeviceHub-*.tar.gz* \
+            versions.json
+
+      - name: Create Release
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: DeviceHub ${{ env.TAG }}
+          body: ${{ github.event.inputs.reason || 'Manual release' }}
+          generate_release_notes: true
+          files: |
+            win-x64/*
+            linux-x64/*
+            versions.json

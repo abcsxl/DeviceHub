@@ -1,0 +1,15 @@
+[Unit]
+Description=DeviceHub Service
+After=network.target pcscd.service
+Wants=pcscd.service
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/devicehub/DeviceHub.Service.Api
+Restart=on-failure
+RestartSec=5
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+
+[Install]
+WantedBy=multi-user.target
