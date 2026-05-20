@@ -16,7 +16,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 0. 交互式硬件选择和端口配置
-echo "[0/6] 硬件组件选择（直接回车=启用）..."
+echo "[0/7] 硬件组件选择（直接回车=启用）..."
 echo ""
 
 read -r -p "启用 PCSC 读卡器支持？ [Y/n] " REPLY_PCSC
@@ -77,25 +77,49 @@ fi
 
 echo ""
 
-# 1. 停止并移除旧服务
-echo "[1/6] 检查并停止旧服务 ..."
-systemctl stop "$APP_NAME" 2>/dev/null || true
-systemctl disable "$APP_NAME" 2>/dev/null || true
-rm -f /etc/systemd/system/$SERVICE_FILE
-systemctl daemon-reload
+# 1. 停止并移除旧服务 (增强版：验证停止 + 强杀选项)
+echo "[1/7] 检查并停止旧服务 ..."
+MUST_RESTART=false
+FORCE_KILLED=false
+
+if systemctl is-active --quiet "$APP_NAME"; then
+  systemctl stop "$APP_NAME"
+  sleep 2
+  
+  # 验证是否真的停止
+  if systemctl is-active --quiet "$APP_NAME"; then
+    echo "! 服务未能自动停止。"
+    read -r -p "是否强制结束进程以完成安装？ [Y/n] " REPLY_FORCE
+    REPLY_FORCE=${REPLY_FORCE:-Y}
+    if [[ "$REPLY_FORCE" =~ ^[Yy] ]]; then
+      echo "  → 正在强制结束进程..."
+      pkill -9 -f "DeviceHub.Service.Api" 2>/dev/null || true
+      sleep 1
+      FORCE_KILLED=true
+    else
+      echo "  → 已跳过强制停止。安装完成后必须重启系统以应用更新。"
+      MUST_RESTART=true
+    fi
+  fi
+fi
+
+if [ "$MUST_RESTART" = false ]; then
+  systemctl disable "$APP_NAME" 2>/dev/null || true
+  rm -f /etc/systemd/system/$SERVICE_FILE
+  systemctl daemon-reload
+fi
 
 # 2. 创建目录并复制文件
-echo "[2/6] 复制文件到 $APP_DIR ..."
+echo "[2/7] 复制文件到 $APP_DIR ..."
 mkdir -p "$APP_DIR"
 cp -r "$SCRIPT_DIR"/* "$APP_DIR/"
 rm -f "$APP_DIR/install.sh"
 chmod +x "$APP_DIR/DeviceHub.Service.Api"
 
 # 3. 写入硬件配置
-echo "[3/6] 写入硬件配置到 appsettings.json ..."
+echo "[3/7] 写入硬件配置到 appsettings.json ..."
 CONFIG_FILE="$APP_DIR/appsettings.json"
 if [ -f "$CONFIG_FILE" ]; then
-  # 使用 awk 精确匹配 Pcsc 段的 Enabled 值
   awk -v enabled="$PCSC_ENABLED" '
     /"Pcsc"/ { in_pcsc=1 }
     in_pcsc && /"Enabled"/ {
@@ -107,39 +131,58 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 # 4. 写入端口配置
-echo "[4/6] 配置 HTTP 端口: $HTTP_PORT ..."
+echo "[4/7] 配置 HTTP 端口: $HTTP_PORT ..."
 if [ -f "$CONFIG_FILE" ]; then
-  # 替换现有 HttpPort 值（无论是否为默认值）
   sed -i "s/\"HttpPort\": *[0-9]*/\"HttpPort\": $HTTP_PORT/" "$CONFIG_FILE"
 fi
 
-# 5. 安装 systemd 服务
-echo "[5/6] 注册 systemd 服务 ..."
-cp "$SCRIPT_DIR/$SERVICE_FILE" /etc/systemd/system/
-systemctl daemon-reload
+# 5. 安装 systemd 服务 (条件执行)
+if [ "$MUST_RESTART" = false ]; then
+  echo "[5/7] 注册 systemd 服务 ..."
+  cp "$SCRIPT_DIR/$SERVICE_FILE" /etc/systemd/system/
+  systemctl daemon-reload
 
-# 6. 启用服务
-echo "[6/6] 启用服务（开机自启）..."
-systemctl enable "$APP_NAME"
+  echo "[6/7] 启用服务（开机自启）..."
+  systemctl enable "$APP_NAME"
 
-# 7. 启动服务
-echo "[7/6] 启动服务 ..."
-systemctl start "$APP_NAME"
-
-sleep 2
-if systemctl is-active --quiet "$APP_NAME"; then
-  echo "  → 服务已成功启动"
+  echo "[7/7] 启动服务 ..."
+  systemctl start "$APP_NAME"
+  
+  sleep 2
+  if systemctl is-active --quiet "$APP_NAME"; then
+    echo "  → 服务已成功启动"
+  else
+    echo "  ! 服务启动失败，请重启系统后重试"
+    MUST_RESTART=true
+  fi
 else
-  echo "  ! 服务启动失败，请重启系统后重试"
+  echo "[5/7] 跳过服务注册（待重启后生效）"
+  echo "[6/7] 跳过服务启用"
+  echo "[7/7] 跳过服务启动"
 fi
 
 echo ""
-echo "=== 安装完成 ==="
-echo ""
-echo "服务地址:  http://localhost:$HTTP_PORT"
-echo "状态查看:  systemctl status $APP_NAME"
-echo "日志查看:   journalctl -u $APP_NAME -f"
-echo "配置编辑:  sudo nano $APP_DIR/appsettings.json"
-echo "重启服务:  systemctl restart $APP_NAME"
-echo "停止服务:  systemctl stop $APP_NAME"
-echo "卸载:      systemctl disable $APP_NAME && rm -rf $APP_DIR /etc/systemd/system/$SERVICE_FILE && systemctl daemon-reload"
+if [ "$MUST_RESTART" = true ]; then
+  echo "=== 安装完成 ==="
+  echo "! 必须重启系统以应用所有更新。"
+  read -r -p "是否立即重启？ [y/N] " REPLY_REBOOT
+  REPLY_REBOOT=${REPLY_REBOOT:-N}
+  if [[ "$REPLY_REBOOT" =~ ^[Yy] ]]; then
+    reboot
+  fi
+else
+  echo "=== 安装完成 ==="
+  echo ""
+  echo "服务地址:  http://localhost:$HTTP_PORT"
+  echo "状态查看:  systemctl status $APP_NAME"
+  echo "日志查看:   journalctl -u $APP_NAME -f"
+  echo "配置编辑:  sudo nano $APP_DIR/appsettings.json"
+  echo "重启服务:  systemctl restart $APP_NAME"
+  echo "停止服务:  systemctl stop $APP_NAME"
+  echo "卸载:      systemctl disable $APP_NAME && rm -rf $APP_DIR /etc/systemd/system/$SERVICE_FILE && systemctl daemon-reload"
+  
+  if [ "$FORCE_KILLED" = true ]; then
+    echo ""
+    echo "! 建议重启系统以确保所有更新生效。"
+  fi
+fi
