@@ -61,6 +61,15 @@ var
   HttpPortPage: TInputQueryWizardPage;
   SelectedPort: Integer;
 
+function InitializeSetup(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := True;
+  Exec('cmd.exe', '/c "net stop DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('cmd.exe', '/c "sc delete DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 function IsPortInUse(Port: Integer): Boolean;
 var
   ResultCode: Integer;
@@ -80,7 +89,7 @@ begin
   Value := 0;
   Len := Length(S);
   if Len = 0 then Exit;
-  
+
   i := 1;
   Negative := False;
   if S[1] = '-' then
@@ -92,9 +101,9 @@ begin
   begin
     i := 2;
   end;
-  
+
   if i > Len then Exit;
-  
+
   while i <= Len do
   begin
     C := S[i];
@@ -102,7 +111,7 @@ begin
     Value := Value * 10 + (Ord(C) - Ord('0'));
     i := i + 1;
   end;
-  
+
   if Negative then Value := -Value;
   Result := True;
 end;
