@@ -101,8 +101,8 @@ jobs:
           pkgdir="output/devicehub-$VERSION"
           mkdir -p "$pkgdir"
           cp -r output/publish/linux-x64/* "$pkgdir/"
-cp deploy/linux/devicehub.service "$pkgdir/"
-cp deploy/linux/install.sh "$pkgdir/"
+          cp deploy/linux/devicehub.service "$pkgdir/"
+          cp deploy/linux/install.sh "$pkgdir/"
           chmod +x "$pkgdir/install.sh"
           cd output
           tar czf "DeviceHub-$VERSION-linux-x64.tar.gz" "devicehub-$VERSION"
