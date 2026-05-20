@@ -18,6 +18,7 @@ chinesesimplified.TitleFontName=Microsoft YaHei
 
 [Setup]
 AppId={{B8F4A23A-8F3C-4A7C-9C5E-1D2E3F4A5B6C}
+WizardStyle=modern
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -48,7 +49,8 @@ Name: "main"; Description: "核心服务"; Types: full custom; Flags: fixed disa
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Run]
-Filename: "sc"; Parameters: "create DeviceHub binPath= ""{app}\{#MyAppExeName}"" start= auto"; Flags: runhidden; StatusMsg: "正在注册 Windows 服务..."
+Filename: "sc"; Parameters: "create DeviceHub binPath= ""{app}\{#MyAppExeName}"" start= auto"; Flags: runhidden; StatusMsg: "正在注册服务..."
+Filename: "net"; Parameters: "start DeviceHub"; Flags: runhidden; StatusMsg: "正在启动服务..."
 
 [UninstallRun]
 Filename: "net"; Parameters: "stop DeviceHub"; Flags: runhidden
@@ -74,7 +76,6 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   ConfigPath: String;
   Lines: TArrayOfString;
-  ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -91,11 +92,5 @@ begin
         SaveStringsToFile(ConfigPath, Lines, False);
       end;
     end;
-  end;
-
-  if CurStep = ssDone then
-  begin
-    if MsgBox('安装完成，重启计算机生效。是否立即重启？', mbInformation, MB_YESNO) = IDYES then
-      Exec('shutdown', '/r /t 0', '', SW_SHOW, ewWaitUntilTerminated, ResultCode);
   end;
 end;
