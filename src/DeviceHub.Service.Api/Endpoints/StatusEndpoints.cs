@@ -14,6 +14,7 @@ public static class StatusEndpoints
             return new ServiceInfo(
                 state.Version,
                 $"{state.Platform}/{state.Architecture}",
+                state.HttpPort,
                 state.StartTime,
                 DateTime.UtcNow - state.StartTime,
                 WebSocketHandler.ConnectionCount,

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using DeviceHub.Devices.Contracts;
 
@@ -35,10 +36,18 @@ public static class ConfigEndpoints
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
-            await File.WriteAllTextAsync(configPath, json);
+            await File.WriteAllTextAsync(configPath, json, Encoding.UTF8);
 
             if (config is IConfigurationRoot root)
                 root.Reload();
+
+            var afterBind = BindConfig(config);
+            if (current.Drivers.Count != afterBind.Drivers.Count ||
+                current.Drivers.Any(kv => kv.Value.Enabled !=
+                    (afterBind.Drivers.TryGetValue(kv.Key, out var d) && d.Enabled)))
+            {
+                logger.LogWarning("驱动启用状态已变更，请重启服务以生效");
+            }
 
             logger.LogInformation("配置已更新，版本号 {Version}", merged.ConfigVersion);
             return Results.Ok(merged);
@@ -48,6 +57,15 @@ public static class ConfigEndpoints
 
     private static AppConfig BindConfig(IConfiguration config)
     {
+        var drivers = new Dictionary<string, DriverConfig>();
+        foreach (var kv in config.GetSection("Drivers").GetChildren())
+        {
+            drivers[kv.Key] = new DriverConfig
+            {
+                Enabled = kv.GetValue<bool>("Enabled")
+            };
+        }
+
         return new AppConfig
         {
             Server = new ServerConfig
@@ -55,15 +73,12 @@ public static class ConfigEndpoints
                 HttpPort = config.GetValue<int>("Server:HttpPort"),
                 WebSocketPath = config.GetValue<string>("Server:WebSocketPath") ?? "/ws"
             },
-            Drivers = new Dictionary<string, DriverConfig>
-            {
-                ["Pcsc"] = new() { Enabled = config.GetValue<bool>("Drivers:Pcsc:Enabled") },
-                ["Printer"] = new() { Enabled = config.GetValue<bool>("Drivers:Printer:Enabled") },
-                ["IdCard"] = new() { Enabled = config.GetValue<bool>("Drivers:IdCard:Enabled") }
-            },
+            Drivers = drivers,
             Logging = new LoggingConfig
             {
-                RingBufferSize = config.GetValue<int>("Logging:RingBufferSize")
+                RingBufferSize = config.GetValue<int>("Logging:RingBufferSize"),
+                LogLevel = config.GetSection("Logging:LogLevel")
+                    .Get<Dictionary<string, string>>() ?? new()
             }
         };
     }

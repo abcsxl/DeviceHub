@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.NetworkInformation;
 using DeviceHub.Devices.Contracts;
 using DeviceHub.Devices.PcscReader;
 using DeviceHub.Service.Api.Endpoints;
@@ -12,6 +14,39 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 
 builder.Services.AddWindowsService();
 builder.Services.AddSystemd();
+
+var configPort = builder.Configuration.GetValue<int>("Server:HttpPort", 5000);
+var cliPort = builder.Configuration.GetValue<int?>("port");
+var targetPort = cliPort ?? configPort;
+var actualPort = FindAvailablePort(targetPort, 10);
+
+if (actualPort != targetPort)
+{
+    Console.WriteLine($"端口 {targetPort} 已被占用，使用端口 {actualPort}");
+}
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(actualPort);
+});
+
+static int FindAvailablePort(int startPort, int maxRetries)
+{
+    for (var i = 0; i < maxRetries; i++)
+    {
+        var port = startPort + i;
+        if (!IsPortInUse(port))
+            return port;
+    }
+    throw new InvalidOperationException($"端口 {startPort}-{startPort + maxRetries - 1} 均被占用，无法启动服务");
+}
+
+static bool IsPortInUse(int port)
+{
+    return IPGlobalProperties.GetIPGlobalProperties()
+        .GetActiveTcpListeners()
+        .Any(ep => ep.Port == port);
+}
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -37,6 +72,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+var serviceState = app.Services.GetRequiredService<ServiceState>();
+serviceState.HttpPort = actualPort;
+
 app.UseCors();
 app.UseWebSockets(new WebSocketOptions
 {
@@ -44,6 +82,7 @@ app.UseWebSockets(new WebSocketOptions
 });
 
 var registry = app.Services.GetRequiredService<DriverRegistry>();
+var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
 
 try
 {
@@ -53,10 +92,11 @@ try
     {
         _ = WebSocketHandler.SendEventAsync("pcsc", "card_status_changed", args);
     };
+    startupLogger.LogInformation("PCSC 驱动程序已注册");
 }
 catch (InvalidOperationException)
 {
-    // PCSC driver 未启用，跳过注册
+    startupLogger.LogInformation("PCSC 驱动程序未启用，跳过注册");
 }
 
 app.MapStatusEndpoints()

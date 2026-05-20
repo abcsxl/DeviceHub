@@ -45,7 +45,8 @@ public class AppConfig
             },
             Logging = new LoggingConfig
             {
-                RingBufferSize = update.Logging?.RingBufferSize ?? Logging.RingBufferSize
+                RingBufferSize = update.Logging?.RingBufferSize ?? Logging.RingBufferSize,
+                LogLevel = update.Logging?.LogLevel ?? Logging.LogLevel
             },
             Drivers = mergedDrivers
         };
@@ -66,4 +67,9 @@ public class DriverConfig
 public class LoggingConfig
 {
     public int RingBufferSize { get; set; } = 1000;
+    public Dictionary<string, string> LogLevel { get; set; } = new()
+    {
+        ["Default"] = "Information",
+        ["Microsoft.AspNetCore"] = "Warning"
+    };
 }

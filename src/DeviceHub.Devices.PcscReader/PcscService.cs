@@ -9,6 +9,7 @@ public class PcscService : IPcscService, IDisposable
     private const uint Success = 0;
 
     private readonly ILogger<PcscService> _logger;
+    private readonly object _syncLock = new();
     private nint _context;
     private HardwareStatus _status = HardwareStatus.Stopped;
     private readonly Dictionary<string, bool> _lastReaderStates = [];
@@ -37,7 +38,7 @@ public class PcscService : IPcscService, IDisposable
             {
                 _status = HardwareStatus.Error;
                 _logger.LogError("SCardEstablishContext 失败: 0x{Code:X8}", rc);
-                return Task.CompletedTask;
+                throw new InvalidOperationException($"PCSC 上下文初始化失败: 0x{rc:X8}");
             }
 
             _status = HardwareStatus.Running;
@@ -60,6 +61,9 @@ public class PcscService : IPcscService, IDisposable
         lock (this)
         {
             _monitorCts?.Cancel();
+            _monitorThread?.Join(5000);
+            _monitorCts?.Dispose();
+            _monitorCts = null;
             _monitorThread = null;
 
             if (_context != nint.Zero)
@@ -77,55 +81,77 @@ public class PcscService : IPcscService, IDisposable
 
     public Task<IReadOnlyList<ReaderInfo>> ListReadersAsync(CancellationToken ct = default)
     {
-        var readers = GetReaderNames();
-        var infos = readers.Select(r => GetReaderInfoInternal(r)).ToList();
-        return Task.FromResult<IReadOnlyList<ReaderInfo>>(infos);
+        lock (_syncLock)
+        {
+            if (_context == nint.Zero)
+                return Task.FromResult<IReadOnlyList<ReaderInfo>>([]);
+            var readers = GetReaderNames();
+            var infos = readers.Select(r => GetReaderInfoInternal(r)).ToList();
+            return Task.FromResult<IReadOnlyList<ReaderInfo>>(infos);
+        }
     }
 
     public Task<ReaderInfo> GetReaderInfoAsync(string readerName, CancellationToken ct = default)
     {
-        return Task.FromResult(GetReaderInfoInternal(readerName));
+        lock (_syncLock)
+        {
+            if (_context == nint.Zero)
+                return Task.FromResult(new ReaderInfo(readerName, false));
+            return Task.FromResult(GetReaderInfoInternal(readerName));
+        }
     }
 
     public Task<string?> GetAtrAsync(string readerName, CancellationToken ct = default)
     {
-        var rc = NativeMethods.Connect(_context, readerName,
-            NativeMethods.SCardShareShared, NativeMethods.SCardProtocolTx,
-            out var hCard, out _);
-
-        if (rc != Success)
-            return Task.FromResult<string?>(null);
-
-        try
+        lock (_syncLock)
         {
-            var atrLen = 0u;
-            rc = NativeMethods.GetAttrib(hCard, NativeMethods.SCardAttrAtrString, null, ref atrLen);
-            if (rc != Success || atrLen == 0)
+            if (_context == nint.Zero)
                 return Task.FromResult<string?>(null);
 
-            var atrBuf = new byte[atrLen];
-            rc = NativeMethods.GetAttrib(hCard, NativeMethods.SCardAttrAtrString, atrBuf, ref atrLen);
-            var atr = rc == Success ? BytesToHex(atrBuf) : null;
+            var rc = NativeMethods.Connect(_context, readerName,
+                NativeMethods.SCardShareShared, NativeMethods.SCardProtocolTx,
+                out var hCard, out _);
 
-            return Task.FromResult(atr);
-        }
-        finally
-        {
-            NativeMethods.Disconnect(hCard, NativeMethods.SCardLeaveCard);
+            if (rc != Success)
+                return Task.FromResult<string?>(null);
+
+            try
+            {
+                var atrLen = 0u;
+                rc = NativeMethods.GetAttrib(hCard, NativeMethods.SCardAttrAtrString, null, ref atrLen);
+                if (rc != Success || atrLen == 0)
+                    return Task.FromResult<string?>(null);
+
+                var atrBuf = new byte[atrLen];
+                rc = NativeMethods.GetAttrib(hCard, NativeMethods.SCardAttrAtrString, atrBuf, ref atrLen);
+                return Task.FromResult(rc == Success ? BytesToHex(atrBuf) : null);
+            }
+            finally
+            {
+                NativeMethods.Disconnect(hCard, NativeMethods.SCardLeaveCard);
+            }
         }
     }
 
     public Task<TransmitResult> TransmitAsync(string readerName, string apdu, CancellationToken ct = default)
+    {
+        lock (_syncLock)
+        {
+            if (_context == nint.Zero)
+                return Task.FromResult(new TransmitResult(false, ErrorMessage: "PCSC 服务未启动"));
+            return TransmitInternal(readerName, apdu);
+        }
+    }
+
+    private Task<TransmitResult> TransmitInternal(string readerName, string apdu)
     {
         var rc = NativeMethods.Connect(_context, readerName,
             NativeMethods.SCardShareShared, NativeMethods.SCardProtocolTx,
             out var hCard, out var protocol);
 
         if (rc != Success)
-        {
             return Task.FromResult(new TransmitResult(false,
                 ErrorMessage: $"连接读卡器失败: 0x{rc:X8}"));
-        }
 
         try
         {
@@ -165,12 +191,7 @@ public class PcscService : IPcscService, IDisposable
 
     public void Dispose()
     {
-        _monitorCts?.Cancel();
-        _monitorCts?.Dispose();
-
-        if (_context != nint.Zero)
-            NativeMethods.ReleaseContext(_context);
-
+        ShutdownAsync().GetAwaiter().GetResult();
         GC.SuppressFinalize(this);
     }
 

@@ -9,6 +9,7 @@ namespace DeviceHub.Service.Api.WebSocket;
 public static class WebSocketHandler
 {
     private static readonly ConcurrentDictionary<Guid, (System.Net.WebSockets.WebSocket Socket, DateTime LastPong)> _connections = new();
+    private static readonly SemaphoreSlim _sendSemaphore = new(5, 5);
 
     public static int ConnectionCount => _connections.Count;
 
@@ -67,31 +68,42 @@ public static class WebSocketHandler
 
     public static async Task SendEventAsync(string target, string eventName, object data)
     {
-        var payload = JsonSerializer.Serialize(new
-        {
-            type = "event",
-            target,
-            @event = eventName,
-            data,
-            timestamp = DateTime.UtcNow
-        });
+        var acquired = await _sendSemaphore.WaitAsync(TimeSpan.FromSeconds(1));
+        if (!acquired) return;
 
-        var bytes = Encoding.UTF8.GetBytes(payload);
-        var segment = new ArraySegment<byte>(bytes);
-
-        foreach (var (id, (socket, _)) in _connections)
+        try
         {
-            if (socket.State == WebSocketState.Open)
+            var payload = JsonSerializer.Serialize(new
             {
-                try
+                type = "event",
+                target,
+                @event = eventName,
+                data,
+                timestamp = DateTime.UtcNow
+            });
+
+            var bytes = Encoding.UTF8.GetBytes(payload);
+            var segment = new ArraySegment<byte>(bytes);
+
+            foreach (var (id, (socket, _)) in _connections)
+            {
+                if (socket.State == WebSocketState.Open)
                 {
-                    await socket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-                }
-                catch
-                {
-                    _connections.TryRemove(id, out _);
+                    try
+                    {
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        await socket.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token);
+                    }
+                    catch
+                    {
+                        _connections.TryRemove(id, out _);
+                    }
                 }
             }
+        }
+        finally
+        {
+            _sendSemaphore.Release();
         }
     }
 
