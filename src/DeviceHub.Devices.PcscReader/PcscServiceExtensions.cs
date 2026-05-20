@@ -13,7 +13,6 @@ public static class PcscServiceExtensions
             return services;
 
         services.AddSingleton<IPcscService, PcscService>();
-
         return services;
     }
 }
