@@ -62,6 +62,7 @@ var
   SelectedPort: Integer;
   ExistingPort: Integer;
   IsUpgrade: Boolean;
+  FailedToStopOldService: Boolean;
 
 function IsPortInUse(Port: Integer): Boolean;
 var
@@ -271,7 +272,16 @@ var
 begin
   if CurStep = ssInstall then
   begin
-    Exec('cmd.exe', '/c "net stop DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    FailedToStopOldService := False;
+    // Check if service is currently running
+    Exec('cmd.exe', '/c "sc query DeviceHub | findstr RUNNING >nul"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if ResultCode = 0 then
+    begin
+      // Service is running, try to stop it
+      Exec('cmd.exe', '/c "net stop DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      if ResultCode <> 0 then FailedToStopOldService := True;
+    end;
+    
     Exec('cmd.exe', '/c "sc delete DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 
@@ -310,7 +320,7 @@ begin
       if MsgBox('服务启动失败，请重启计算机以启动 DeviceHub 服务。是否立即重启？', mbConfirmation, MB_YESNO) = IDYES then
         Exec('shutdown', '/r /t 0', '', SW_HIDE, ewNoWait, ResultCode);
     end
-    else if IsUpgrade then
+    else if IsUpgrade and FailedToStopOldService then
     begin
       if MsgBox('安装完成。重启计算机以应用所有更新。是否立即重启？', mbConfirmation, MB_YESNO) = IDYES then
         Exec('shutdown', '/r /t 0', '', SW_HIDE, ewNoWait, ResultCode);
