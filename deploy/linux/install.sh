@@ -143,12 +143,19 @@ if [ "$MUST_RESTART" = false ]; then
   systemctl daemon-reload
 
   echo "[6/7] 启用服务（开机自启）..."
-  systemctl enable "$APP_NAME"
+  systemctl enable "$APP_NAME" 2>/dev/null || true
 
   echo "[7/7] 启动服务 ..."
-  systemctl start "$APP_NAME"
+  systemctl start "$APP_NAME" 2>/dev/null || true
   
   sleep 2
+  # 兜底重试：如果首次启动失败，再试一次
+  if ! systemctl is-active --quiet "$APP_NAME"; then
+    echo "  ! 服务未启动，尝试重试..."
+    systemctl start "$APP_NAME" 2>/dev/null || true
+    sleep 2
+  fi
+  
   if systemctl is-active --quiet "$APP_NAME"; then
     echo "  → 服务已成功启动"
   else

@@ -267,6 +267,7 @@ var
   Lines: TArrayOfString;
   ResultCode: Integer;
   ServiceRunning: Boolean;
+  AppPath: String;
 begin
   if CurStep = ssInstall then
   begin
@@ -320,7 +321,14 @@ begin
     
     if not MustRestart then
     begin
-      Exec('cmd.exe', '/c "sc create DeviceHub binPath= ""{app}\DeviceHub.Service.Api.exe"" start= auto >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      AppPath := ExpandConstant('{app}');
+      
+      // 确保旧服务已删除（处理强杀后 sc delete 失败的情况）
+      Exec('cmd.exe', '/c "sc delete DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Sleep(500);
+      
+      // 注册并启动新服务
+      Exec('cmd.exe', '/c "sc create DeviceHub binPath= """ + AppPath + '\DeviceHub.Service.Api.exe"" start= auto >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       Exec('cmd.exe', '/c "net start DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     end;
   end;
