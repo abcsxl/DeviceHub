@@ -6,6 +6,11 @@ using DeviceHub.Service.Api.WebSocket;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
+builder.Environment.ContentRootPath = AppContext.BaseDirectory;
+builder.Configuration.AddJsonFile(
+    Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
+    optional: false, reloadOnChange: true);
+
 builder.Services.AddWindowsService();
 builder.Services.AddSystemd();
 
