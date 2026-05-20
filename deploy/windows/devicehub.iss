@@ -32,6 +32,7 @@ Compression=lzma2/max
 SolidCompression=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 PrivilegesRequired=admin
+CloseApplications=no
 
 [Languages]
 Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
@@ -48,10 +49,6 @@ Name: "main"; Description: "核心服务"; Types: full custom; Flags: fixed disa
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
-[Run]
-Filename: "sc"; Parameters: "create DeviceHub binPath= ""{app}\{#MyAppExeName}"" start= auto"; Flags: runhidden; StatusMsg: "正在注册服务..."
-Filename: "net"; Parameters: "start DeviceHub"; Flags: runhidden; StatusMsg: "正在启动服务..."
-
 [UninstallRun]
 Filename: "net"; Parameters: "stop DeviceHub"; Flags: runhidden
 Filename: "sc"; Parameters: "delete DeviceHub"; Flags: runhidden
@@ -62,7 +59,8 @@ var
   SelectedPort: Integer;
   ExistingPort: Integer;
   IsUpgrade: Boolean;
-  FailedToStopOldService: Boolean;
+  ForceKilled: Boolean;
+  MustRestart: Boolean;
 
 function IsPortInUse(Port: Integer): Boolean;
 var
@@ -272,17 +270,34 @@ var
 begin
   if CurStep = ssInstall then
   begin
-    FailedToStopOldService := False;
-    // Check if service is currently running
+    ForceKilled := False;
+    MustRestart := False;
+    
     Exec('cmd.exe', '/c "sc query DeviceHub | findstr RUNNING >nul"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     if ResultCode = 0 then
     begin
-      // Service is running, try to stop it
       Exec('cmd.exe', '/c "net stop DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      if ResultCode <> 0 then FailedToStopOldService := True;
+      Sleep(2000);
+      Exec('cmd.exe', '/c "sc query DeviceHub | findstr RUNNING >nul"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      if ResultCode = 0 then
+      begin
+        if MsgBox('DeviceHub 服务正在运行且无法自动停止。是否强制结束进程以完成安装？', mbConfirmation, MB_YESNO) = IDYES then
+        begin
+          Exec('cmd.exe', '/c "taskkill /F /IM DeviceHub.Service.Api.exe >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+          Sleep(1000);
+          ForceKilled := True;
+        end
+        else
+        begin
+          MustRestart := True;
+        end;
+      end;
     end;
     
-    Exec('cmd.exe', '/c "sc delete DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if not MustRestart then
+    begin
+      Exec('cmd.exe', '/c "sc delete DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    end;
   end;
 
   if CurStep = ssPostInstall then
@@ -302,16 +317,34 @@ begin
         SaveStringsToFile(ConfigPath, Lines, False);
       end;
     end;
+    
+    if not MustRestart then
+    begin
+      Exec('cmd.exe', '/c "sc create DeviceHub binPath= ""{app}\DeviceHub.Service.Api.exe"" start= auto >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Exec('cmd.exe', '/c "net start DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    end;
   end;
 
   if CurStep = ssDone then
   begin
     Sleep(3000);
     
-    ServiceRunning := False;
-    if Exec('cmd.exe', '/c "sc query DeviceHub | findstr RUNNING >nul"', '',
-            SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    if MustRestart then
     begin
+      if MsgBox('安装完成。由于未关闭旧程序，必须重启计算机以应用更新。是否立即重启？', mbConfirmation, MB_YESNO) = IDYES then
+        Exec('shutdown', '/r /t 0', '', SW_HIDE, ewNoWait, ResultCode);
+      Exit;
+    end;
+    
+    ServiceRunning := False;
+    Exec('cmd.exe', '/c "sc query DeviceHub | findstr RUNNING >nul"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if ResultCode = 0 then ServiceRunning := True;
+
+    if not ServiceRunning then
+    begin
+      Exec('cmd.exe', '/c "net start DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Sleep(1000);
+      Exec('cmd.exe', '/c "sc query DeviceHub | findstr RUNNING >nul"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       if ResultCode = 0 then ServiceRunning := True;
     end;
 
@@ -320,9 +353,9 @@ begin
       if MsgBox('服务启动失败，请重启计算机以启动 DeviceHub 服务。是否立即重启？', mbConfirmation, MB_YESNO) = IDYES then
         Exec('shutdown', '/r /t 0', '', SW_HIDE, ewNoWait, ResultCode);
     end
-    else if IsUpgrade and FailedToStopOldService then
+    else if ForceKilled then
     begin
-      if MsgBox('安装完成。重启计算机以应用所有更新。是否立即重启？', mbConfirmation, MB_YESNO) = IDYES then
+      if MsgBox('安装完成。为确保所有更新生效，建议重启计算机。是否立即重启？', mbConfirmation, MB_YESNO) = IDYES then
         Exec('shutdown', '/r /t 0', '', SW_HIDE, ewNoWait, ResultCode);
     end;
   end;
