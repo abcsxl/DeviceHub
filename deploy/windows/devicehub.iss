@@ -323,12 +323,12 @@ begin
     begin
       AppPath := ExpandConstant('{app}');
       
-      // 确保旧服务已删除（处理强杀后 sc delete 失败的情况）
+      { 确保旧服务已删除（处理强杀后 sc delete 失败的情况） }
       Exec('cmd.exe', '/c "sc delete DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       Sleep(500);
       
-      // 注册并启动新服务
-      Exec('cmd.exe', '/c "sc create DeviceHub binPath= """ + AppPath + '\DeviceHub.Service.Api.exe"" start= auto >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      { 注册并启动新服务 }
+      Exec('cmd.exe', '/c sc create DeviceHub binPath= "' + AppPath + '\DeviceHub.Service.Api.exe" start= auto >nul 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       Exec('cmd.exe', '/c "net start DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     end;
   end;
