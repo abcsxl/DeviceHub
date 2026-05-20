@@ -267,6 +267,7 @@ var
   ConfigPath: String;
   Lines: TArrayOfString;
   ResultCode: Integer;
+  ServiceRunning: Boolean;
 begin
   if CurStep = ssInstall then
   begin
@@ -297,8 +298,6 @@ begin
   begin
     Sleep(3000);
     
-    var
-      ServiceRunning: Boolean;
     ServiceRunning := False;
     if Exec('cmd.exe', '/c "sc query DeviceHub | findstr RUNNING >nul"', '',
             SW_HIDE, ewWaitUntilTerminated, ResultCode) then
