@@ -57,6 +57,65 @@ Filename: "net"; Parameters: "stop DeviceHub"; Flags: runhidden
 Filename: "sc"; Parameters: "delete DeviceHub"; Flags: runhidden
 
 [Code]
+var
+  HttpPortPage: TInputQueryWizardPage;
+  SelectedPort: Integer;
+
+function IsPortInUse(Port: Integer): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := Exec('cmd.exe', '/c "netstat -ano | findstr :' + IntToStr(Port) + ' >nul"', '',
+                 SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := (ResultCode = 0);
+end;
+
+function IsValidPort(Port: Integer): Boolean;
+begin
+  Result := (Port >= 1) and (Port <= 65535);
+end;
+
+procedure InitializeWizard;
+begin
+  HttpPortPage := CreateInputQueryPage(wpSelectComponents,
+    '配置 HTTP 端口', '请选择服务监听的 HTTP 端口',
+    '默认端口 5000 已被其他程序占用，请指定一个可用端口：');
+  HttpPortPage.Add('HTTP 端口:', False);
+  HttpPortPage.Values[0] := '5000';
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if PageID = HttpPortPage.ID then
+    Result := not IsPortInUse(5000);
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  PortStr: String;
+  Port: Integer;
+begin
+  Result := True;
+  if CurPageID = HttpPortPage.ID then
+  begin
+    PortStr := HttpPortPage.Values[0];
+    if not TryStrToInt(PortStr, Port) or not IsValidPort(Port) then
+    begin
+      MsgBox('请输入有效的端口号（1-65535）', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+    if IsPortInUse(Port) then
+    begin
+      MsgBox('端口 ' + PortStr + ' 已被占用，请选择其他端口', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+    SelectedPort := Port;
+  end;
+end;
+
 procedure SetDriverEnabled(var Lines: TArrayOfString; const SectionName, EnabledStr: String);
 var
   i: Integer;
@@ -67,6 +126,20 @@ begin
     begin
       if i + 1 < GetArrayLength(Lines) then
         StringChangeEx(Lines[i + 1], '"Enabled": false', '"Enabled": ' + EnabledStr, False);
+      Break;
+    end;
+  end;
+end;
+
+procedure SetHttpPort(var Lines: TArrayOfString; const Port: String);
+var
+  i: Integer;
+begin
+  for i := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    if Pos('"HttpPort":', Lines[i]) > 0 then
+    begin
+      StringChangeEx(Lines[i], '"HttpPort": 5000', '"HttpPort": ' + Port, False);
       Break;
     end;
   end;
@@ -89,6 +162,11 @@ begin
           SetDriverEnabled(Lines, 'Pcsc', 'true')
         else
           SetDriverEnabled(Lines, 'Pcsc', 'false');
+
+        if not IsPortInUse(5000) then
+          SetHttpPort(Lines, '5000')
+        else
+          SetHttpPort(Lines, IntToStr(SelectedPort));
 
         SaveStringsToFile(ConfigPath, Lines, False);
       end;

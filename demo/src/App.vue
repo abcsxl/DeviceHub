@@ -51,6 +51,10 @@ async function putConfig() {
   await call('configPut', () => putJson('/api/config', JSON.parse(configPutBody.value)))
 }
 
+function autoFillConfig() {
+  window.setTimeout(() => { configPutBody.value = results.configGet }, 200)
+}
+
 // ==============================
 // 3. Logs
 // ==============================
@@ -224,7 +228,7 @@ function wsSend() {
           </div>
         </div>
         <div v-else class="hint-row">
-          <button class="link" @click="getConfig; setTimeout(() => configPutBody = results.configGet, 200)">点击 GET 后自动填充到编辑框</button>
+          <button class="link" @click="getConfig(); autoFillConfig()">点击 GET 后自动填充到编辑框</button>
         </div>
       </section>
 

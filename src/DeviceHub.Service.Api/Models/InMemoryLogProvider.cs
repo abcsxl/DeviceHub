@@ -7,15 +7,23 @@ public class InMemoryLogProvider : ILoggerProvider
 {
     private readonly ConcurrentQueue<LogEntry> _entries = new();
     private readonly int _capacity;
+    private readonly Dictionary<string, LogLevel> _minLevels;
 
     public InMemoryLogProvider(IConfiguration configuration)
     {
         _capacity = configuration.GetValue<int>("Logging:RingBufferSize", 1000);
+        _minLevels = new Dictionary<string, LogLevel>(StringComparer.OrdinalIgnoreCase);
+        var levelSection = configuration.GetSection("Logging:LogLevel");
+        foreach (var kv in levelSection.GetChildren())
+        {
+            if (Enum.TryParse<LogLevel>(kv.Value, true, out var level))
+                _minLevels[kv.Key] = level;
+        }
     }
 
     public ILogger CreateLogger(string categoryName)
     {
-        return new InMemoryLogger(categoryName, _entries, _capacity);
+        return new InMemoryLogger(categoryName, _entries, _capacity, _minLevels);
     }
 
     public List<LogEntry> GetLogs(string? level = null, int tail = 100)
@@ -39,20 +47,34 @@ public class InMemoryLogProvider : ILoggerProvider
         private readonly string _categoryName;
         private readonly ConcurrentQueue<LogEntry> _entries;
         private readonly int _capacity;
+        private readonly Dictionary<string, LogLevel> _minLevels;
+        private readonly LogLevel _effectiveMinLevel;
 
         public InMemoryLogger(
             string categoryName,
             ConcurrentQueue<LogEntry> entries,
-            int capacity)
+            int capacity,
+            Dictionary<string, LogLevel> minLevels)
         {
             _categoryName = categoryName;
             _entries = entries;
             _capacity = capacity;
+            _minLevels = minLevels;
+            _effectiveMinLevel = ResolveMinLevel(categoryName);
+        }
+
+        private LogLevel ResolveMinLevel(string category)
+        {
+            if (_minLevels.TryGetValue(category, out var level))
+                return level;
+            if (_minLevels.TryGetValue("Default", out var defaultLevel))
+                return defaultLevel;
+            return LogLevel.Information;
         }
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-        public bool IsEnabled(LogLevel logLevel) => true;
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= _effectiveMinLevel;
 
         public void Log<TState>(
             LogLevel logLevel,

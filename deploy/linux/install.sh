@@ -15,8 +15,8 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# 0. 交互式硬件选择
-echo "[0/5] 硬件组件选择（直接回车=启用）..."
+# 0. 交互式硬件选择和端口配置
+echo "[0/6] 硬件组件选择（直接回车=启用）..."
 echo ""
 
 read -r -p "启用 PCSC 读卡器支持？ [Y/n] " REPLY_PCSC
@@ -31,32 +31,67 @@ fi
 
 echo ""
 
+# 端口检查
+DEFAULT_PORT=5000
+HTTP_PORT=$DEFAULT_PORT
+
+check_port() {
+  local port=$1
+  if command -v ss &> /dev/null; then
+    ss -tlnp | grep -q ":${port} "
+  elif command -v netstat &> /dev/null; then
+    netstat -tlnp | grep -q ":${port} "
+  else
+    return 1
+  fi
+}
+
+if check_port $DEFAULT_PORT; then
+  echo "默认端口 $DEFAULT_PORT 已被占用"
+  read -r -p "请输入新的 HTTP 端口 [$((DEFAULT_PORT + 1))]: " PORT_INPUT
+  if [ -n "$PORT_INPUT" ]; then
+    HTTP_PORT=$PORT_INPUT
+  else
+    HTTP_PORT=$((DEFAULT_PORT + 1))
+  fi
+  echo "  → 使用端口: $HTTP_PORT"
+else
+  echo "  → HTTP 端口: $DEFAULT_PORT (可用)"
+fi
+
+echo ""
+
 # 1. 创建目录并复制文件
-echo "[1/5] 复制文件到 $APP_DIR ..."
+echo "[1/6] 复制文件到 $APP_DIR ..."
 mkdir -p "$APP_DIR"
 cp -r "$SCRIPT_DIR"/* "$APP_DIR/"
 rm -f "$APP_DIR/install.sh"
 chmod +x "$APP_DIR/DeviceHub.Service.Api"
 
 # 2. 写入硬件配置
-echo "[2/5] 写入硬件配置到 appsettings.json ..."
+echo "[2/6] 写入硬件配置到 appsettings.json ..."
 CONFIG_FILE="$APP_DIR/appsettings.json"
 if [ -f "$CONFIG_FILE" ]; then
-  # 替换 Hardware.PcscReader.Enabled 的值
   sed -i "s/\"Enabled\": true/\"Enabled\": $PCSC_ENABLED/" "$CONFIG_FILE"
 fi
 
-# 3. 安装 systemd 服务
-echo "[3/5] 注册 systemd 服务 ..."
+# 3. 写入端口配置
+echo "[3/6] 配置 HTTP 端口: $HTTP_PORT ..."
+if [ -f "$CONFIG_FILE" ] && [ "$HTTP_PORT" != "$DEFAULT_PORT" ]; then
+  sed -i "s/\"HttpPort\": $DEFAULT_PORT/\"HttpPort\": $HTTP_PORT/" "$CONFIG_FILE"
+fi
+
+# 4. 安装 systemd 服务
+echo "[4/6] 注册 systemd 服务 ..."
 cp "$SCRIPT_DIR/$SERVICE_FILE" /etc/systemd/system/
 systemctl daemon-reload
 
-# 4. 启用服务
-echo "[4/5] 启用服务（开机自启）..."
+# 5. 启用服务
+echo "[5/6] 启用服务（开机自启）..."
 systemctl enable "$APP_NAME"
 
-# 5. 启动服务
-echo "[5/5] 启动服务 ..."
+# 6. 启动服务
+echo "[6/6] 启动服务 ..."
 systemctl start "$APP_NAME"
 
 sleep 2
@@ -69,6 +104,7 @@ fi
 echo ""
 echo "=== 安装完成 ==="
 echo ""
+echo "服务地址:  http://localhost:$HTTP_PORT"
 echo "状态查看:  systemctl status $APP_NAME"
 echo "日志查看:   journalctl -u $APP_NAME -f"
 echo "配置编辑:  sudo nano $APP_DIR/appsettings.json"
