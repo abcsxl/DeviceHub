@@ -296,11 +296,25 @@ begin
   if CurStep = ssDone then
   begin
     Sleep(3000);
+    
+    var
+      ServiceRunning: Boolean;
+    ServiceRunning := False;
     if Exec('cmd.exe', '/c "sc query DeviceHub | findstr RUNNING >nul"', '',
             SW_HIDE, ewWaitUntilTerminated, ResultCode) then
     begin
-      if ResultCode <> 0 then
-        MsgBox('服务启动失败，请重启计算机以启动 DeviceHub 服务。', mbInformation, MB_OK);
+      if ResultCode = 0 then ServiceRunning := True;
+    end;
+
+    if not ServiceRunning then
+    begin
+      if MsgBox('服务启动失败，请重启计算机以启动 DeviceHub 服务。是否立即重启？', mbConfirmation, MB_YESNO) = IDYES then
+        Exec('shutdown', '/r /t 0', '', SW_HIDE, ewNoWait, ResultCode);
+    end
+    else if IsUpgrade then
+    begin
+      if MsgBox('安装完成。重启计算机以应用所有更新。是否立即重启？', mbConfirmation, MB_YESNO) = IDYES then
+        Exec('shutdown', '/r /t 0', '', SW_HIDE, ewNoWait, ResultCode);
     end;
   end;
 end;
