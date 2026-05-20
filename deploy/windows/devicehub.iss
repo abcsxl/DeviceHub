@@ -76,6 +76,7 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   ConfigPath: String;
   Lines: TArrayOfString;
+  ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -91,6 +92,17 @@ begin
 
         SaveStringsToFile(ConfigPath, Lines, False);
       end;
+    end;
+  end;
+
+  if CurStep = ssDone then
+  begin
+    Sleep(3000);
+    if Exec('cmd.exe', '/c "sc query DeviceHub | findstr RUNNING >nul"', '',
+            SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    begin
+      if ResultCode <> 0 then
+        MsgBox('服务启动失败，请重启计算机以启动 DeviceHub 服务。', mbInformation, MB_OK);
     end;
   end;
 end;

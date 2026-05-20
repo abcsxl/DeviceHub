@@ -16,7 +16,7 @@ src/
 └── DeviceHub.Service.Api/          # Minimal APIs 主程序
 deploy/
 ├── windows/                        # Inno Setup 安装脚本
-└── ubuntu/                         # systemd 服务 + 安装脚本
+├── linux/                          # systemd 服务 + 安装脚本
 .github/workflows/                  # CI/CD (build + release)
 ```
 
