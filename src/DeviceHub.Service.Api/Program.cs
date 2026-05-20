@@ -4,12 +4,11 @@ using DeviceHub.Service.Api.Endpoints;
 using DeviceHub.Service.Api.Models;
 using DeviceHub.Service.Api.WebSocket;
 
-var builder = WebApplication.CreateSlimBuilder(args);
-
-builder.Environment.ContentRootPath = AppContext.BaseDirectory;
-builder.Configuration.AddJsonFile(
-    Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
-    optional: false, reloadOnChange: true);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
 
 builder.Services.AddWindowsService();
 builder.Services.AddSystemd();
