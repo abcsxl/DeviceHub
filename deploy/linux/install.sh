@@ -72,7 +72,15 @@ chmod +x "$APP_DIR/DeviceHub.Service.Api"
 echo "[2/6] 写入硬件配置到 appsettings.json ..."
 CONFIG_FILE="$APP_DIR/appsettings.json"
 if [ -f "$CONFIG_FILE" ]; then
-  sed -i "s/\"Enabled\": true/\"Enabled\": $PCSC_ENABLED/" "$CONFIG_FILE"
+  # 使用 awk 精确匹配 Pcsc 段的 Enabled 值
+  awk -v enabled="$PCSC_ENABLED" '
+    /"Pcsc"/ { in_pcsc=1 }
+    in_pcsc && /"Enabled"/ {
+      sub(/"Enabled": [a-z]+/, "\"Enabled\": " enabled)
+      in_pcsc=0
+    }
+    { print }
+  ' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
 fi
 
 # 3. 写入端口配置
