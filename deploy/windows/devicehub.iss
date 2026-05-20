@@ -114,6 +114,7 @@ end;
 
 procedure InitializeWizard;
 begin
+  SelectedPort := 5000;
   HttpPortPage := CreateInputQueryPage(wpSelectComponents,
     '配置 HTTP 端口', '请选择服务监听的 HTTP 端口',
     '默认端口 5000 已被其他程序占用，请指定一个可用端口：');
@@ -162,7 +163,10 @@ begin
     if Pos('"' + SectionName + '":', Lines[i]) > 0 then
     begin
       if i + 1 < GetArrayLength(Lines) then
+      begin
+        StringChangeEx(Lines[i + 1], '"Enabled": true', '"Enabled": ' + EnabledStr, False);
         StringChangeEx(Lines[i + 1], '"Enabled": false', '"Enabled": ' + EnabledStr, False);
+      end;
       Break;
     end;
   end;
