@@ -11,6 +11,11 @@
   #define PublishDir "..\..\src\DeviceHub.Service.Api\bin\Release\net10.0\win-x64\publish"
 #endif
 
+[LangOptions]
+chinesesimplified.DialogFontName=Microsoft YaHei
+chinesesimplified.WelcomeFontName=Microsoft YaHei
+chinesesimplified.TitleFontName=Microsoft YaHei
+
 [Setup]
 AppId={{B8F4A23A-8F3C-4A7C-9C5E-1D2E3F4A5B6C}
 WizardStyle=modern
@@ -44,7 +49,7 @@ Name: "main"; Description: "核心服务"; Types: full custom; Flags: fixed disa
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Run]
-Filename: "sc"; Parameters: "create DeviceHub binPath= ""{app}\{#MyAppExeName}"" start= auto"; Flags: runhidden; StatusMsg: "正在注册 Windows 服务..."
+Filename: "sc"; Parameters: "create DeviceHub binPath= ""{app}\{#MyAppExeName}"" start= auto"; Flags: runhidden; StatusMsg: "正在注册服务..."
 Filename: "net"; Parameters: "start DeviceHub"; Flags: runhidden; StatusMsg: "正在启动服务..."
 
 [UninstallRun]
