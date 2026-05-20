@@ -59,6 +59,13 @@ systemctl enable "$APP_NAME"
 echo "[5/5] 启动服务 ..."
 systemctl start "$APP_NAME"
 
+sleep 2
+if systemctl is-active --quiet "$APP_NAME"; then
+  echo "  → 服务已成功启动"
+else
+  echo "  ! 服务启动失败，请重启系统后重试"
+fi
+
 echo ""
 echo "=== 安装完成 ==="
 echo ""

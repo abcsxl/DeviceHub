@@ -53,9 +53,9 @@ public static class PlatformDetector
 
 | 目录 | 文件 | 用途 |
 |------|------|------|
-| `deploy/ubuntu/` | `devicehub.service` | systemd 服务单元 |
-| `deploy/ubuntu/` | `install.sh` | Linux 一键安装 |
-| `deploy/ubuntu/` | `publish.sh` | Linux 本地发布打包 |
+| `deploy/linux/` | `devicehub.service` | systemd 服务单元 |
+| `deploy/linux/` | `install.sh` | Linux 一键安装 |
+| `deploy/linux/` | `publish.sh` | Linux 本地发布打包 |
 | `deploy/windows/` | `devicehub.iss` | Inno Setup 安装脚本 |
 | `deploy/windows/` | `publish.ps1` | Windows 本地发布打包 |
 

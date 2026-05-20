@@ -75,8 +75,8 @@ Release 名格式：`DeviceHub v1.1.0`，自动生成 release notes。
 ## Linux 本地打包
 
 ```bash
-chmod +x deploy/ubuntu/publish.sh
-./deploy/ubuntu/publish.sh "1.1.0" "Release" "linux-x64"
+chmod +x deploy/linux/publish.sh
+./deploy/linux/publish.sh "1.1.0" "Release" "linux-x64"
 ```
 
 参数依次为：版本号、构建配置、运行时标识。
