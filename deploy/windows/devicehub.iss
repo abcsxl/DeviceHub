@@ -143,17 +143,36 @@ begin
   end;
 end;
 
+function GetOldInstallPath: String;
+var
+  RegKey: String;
+  Path: String;
+begin
+  Result := '';
+  RegKey := 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{B8F4A23A-8F3C-4A7C-9C5E-1D2E3F4A5B6C}_is1';
+  if RegQueryStringValue(HKLM, RegKey, 'InstallLocation', Path) then
+    Result := Path
+  else if RegQueryStringValue(HKCU, RegKey, 'InstallLocation', Path) then
+    Result := Path;
+end;
+
 procedure InitializeWizard;
 var
+  OldPath: String;
   OldConfigPath: String;
 begin
-  OldConfigPath := ExpandConstant('{app}\appsettings.json');
-  if FileExists(OldConfigPath) then
+  OldPath := GetOldInstallPath;
+  if OldPath <> '' then
   begin
-    ExistingPort := ReadExistingPort(OldConfigPath);
-    SelectedPort := ExistingPort;
-  end
-  else
+    OldConfigPath := OldPath + '\appsettings.json';
+    if FileExists(OldConfigPath) then
+    begin
+      ExistingPort := ReadExistingPort(OldConfigPath);
+      SelectedPort := ExistingPort;
+    end;
+  end;
+
+  if SelectedPort = 0 then
   begin
     ExistingPort := 5000;
     SelectedPort := 5000;
