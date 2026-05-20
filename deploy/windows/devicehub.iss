@@ -60,15 +60,7 @@ Filename: "sc"; Parameters: "delete DeviceHub"; Flags: runhidden
 var
   HttpPortPage: TInputQueryWizardPage;
   SelectedPort: Integer;
-
-function InitializeSetup(): Boolean;
-var
-  ResultCode: Integer;
-begin
-  Result := True;
-  Exec('cmd.exe', '/c "net stop DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Exec('cmd.exe', '/c "sc delete DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-end;
+  ExistingPort: Integer;
 
 function IsPortInUse(Port: Integer): Boolean;
 var
@@ -121,21 +113,64 @@ begin
   Result := (Port >= 1) and (Port <= 65535);
 end;
 
-procedure InitializeWizard;
+function ReadExistingPort(const ConfigPath: String): Integer;
+var
+  Lines: TArrayOfString;
+  i: Integer;
+  Line: String;
+  StartPos: Integer;
+  PortStr: String;
+  Port: Integer;
 begin
-  SelectedPort := 5000;
+  Result := 5000;
+  if not FileExists(ConfigPath) then Exit;
+  if not LoadStringsFromFile(ConfigPath, Lines) then Exit;
+
+  for i := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    Line := Lines[i];
+    if Pos('"HttpPort":', Line) > 0 then
+    begin
+      StartPos := Pos(':', Line);
+      if StartPos > 0 then
+      begin
+        PortStr := Trim(Copy(Line, StartPos + 1, Length(Line)));
+        if TryParseInt(PortStr, Port) and IsValidPort(Port) then
+          Result := Port;
+      end;
+      Break;
+    end;
+  end;
+end;
+
+procedure InitializeWizard;
+var
+  OldConfigPath: String;
+begin
+  OldConfigPath := ExpandConstant('{app}\appsettings.json');
+  if FileExists(OldConfigPath) then
+  begin
+    ExistingPort := ReadExistingPort(OldConfigPath);
+    SelectedPort := ExistingPort;
+  end
+  else
+  begin
+    ExistingPort := 5000;
+    SelectedPort := 5000;
+  end;
+
   HttpPortPage := CreateInputQueryPage(wpSelectComponents,
     '配置 HTTP 端口', '请选择服务监听的 HTTP 端口',
     '默认端口 5000 已被其他程序占用，请指定一个可用端口：');
   HttpPortPage.Add('HTTP 端口:', False);
-  HttpPortPage.Values[0] := '5000';
+  HttpPortPage.Values[0] := IntToStr(SelectedPort);
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := False;
   if PageID = HttpPortPage.ID then
-    Result := not IsPortInUse(5000);
+    Result := not IsPortInUse(SelectedPort);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -189,7 +224,7 @@ begin
   begin
     if Pos('"HttpPort":', Lines[i]) > 0 then
     begin
-      StringChangeEx(Lines[i], '"HttpPort": 5000', '"HttpPort": ' + Port, False);
+      StringChangeEx(Lines[i], '"HttpPort": ' + IntToStr(ExistingPort), '"HttpPort": ' + Port, False);
       Break;
     end;
   end;
@@ -201,6 +236,12 @@ var
   Lines: TArrayOfString;
   ResultCode: Integer;
 begin
+  if CurStep = ssInstall then
+  begin
+    Exec('cmd.exe', '/c "net stop DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec('cmd.exe', '/c "sc delete DeviceHub >nul 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
+
   if CurStep = ssPostInstall then
   begin
     ConfigPath := ExpandConstant('{app}\appsettings.json');
@@ -213,10 +254,7 @@ begin
         else
           SetDriverEnabled(Lines, 'Pcsc', 'false');
 
-        if not IsPortInUse(5000) then
-          SetHttpPort(Lines, '5000')
-        else
-          SetHttpPort(Lines, IntToStr(SelectedPort));
+        SetHttpPort(Lines, IntToStr(SelectedPort));
 
         SaveStringsToFile(ConfigPath, Lines, False);
       end;
