@@ -34,12 +34,14 @@ echo ""
 # 端口检查
 DEFAULT_PORT=5000
 HTTP_PORT=$DEFAULT_PORT
+IS_UPGRADE=false
 
 # 检查是否为覆盖安装（读取现有配置中的端口）
 if [ -f "$APP_DIR/appsettings.json" ]; then
   EXISTING_PORT=$(grep -o '"HttpPort": *[0-9]*' "$APP_DIR/appsettings.json" | grep -o '[0-9]*')
   if [ -n "$EXISTING_PORT" ]; then
     HTTP_PORT=$EXISTING_PORT
+    IS_UPGRADE=true
     echo "检测到已安装版本，保留现有端口: $HTTP_PORT"
   fi
 fi
@@ -55,17 +57,22 @@ check_port() {
   fi
 }
 
-if check_port $HTTP_PORT; then
-  echo "端口 $HTTP_PORT 已被占用"
-  read -r -p "请输入新的 HTTP 端口 [$((HTTP_PORT + 1))]: " PORT_INPUT
-  if [ -n "$PORT_INPUT" ]; then
-    HTTP_PORT=$PORT_INPUT
-  else
-    HTTP_PORT=$((HTTP_PORT + 1))
-  fi
-  echo "  → 使用端口: $HTTP_PORT"
+# 覆盖安装且使用原端口时跳过检查（步骤 1 会先停止旧服务）
+if [ "$IS_UPGRADE" = true ]; then
+  echo "  → HTTP 端口: $HTTP_PORT (安装时将释放)"
 else
-  echo "  → HTTP 端口: $HTTP_PORT (可用)"
+  if check_port $HTTP_PORT; then
+    echo "端口 $HTTP_PORT 已被占用"
+    read -r -p "请输入新的 HTTP 端口 [$((HTTP_PORT + 1))]: " PORT_INPUT
+    if [ -n "$PORT_INPUT" ]; then
+      HTTP_PORT=$PORT_INPUT
+    else
+      HTTP_PORT=$((HTTP_PORT + 1))
+    fi
+    echo "  → 使用端口: $HTTP_PORT"
+  else
+    echo "  → HTTP 端口: $HTTP_PORT (可用)"
+  fi
 fi
 
 echo ""

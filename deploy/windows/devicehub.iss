@@ -61,6 +61,7 @@ var
   HttpPortPage: TInputQueryWizardPage;
   SelectedPort: Integer;
   ExistingPort: Integer;
+  IsUpgrade: Boolean;
 
 function IsPortInUse(Port: Integer): Boolean;
 var
@@ -161,12 +162,17 @@ var
   OldPath: String;
   OldConfigPath: String;
 begin
+  IsUpgrade := False;
+  SelectedPort := 0;
+  ExistingPort := 0;
+  
   OldPath := GetOldInstallPath;
   if OldPath <> '' then
   begin
     OldConfigPath := OldPath + '\appsettings.json';
     if FileExists(OldConfigPath) then
     begin
+      IsUpgrade := True;
       ExistingPort := ReadExistingPort(OldConfigPath);
       SelectedPort := ExistingPort;
     end;
@@ -189,7 +195,13 @@ function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := False;
   if PageID = HttpPortPage.ID then
-    Result := not IsPortInUse(SelectedPort);
+  begin
+    // 覆盖安装且使用原端口时跳过检查（安装时会先停止旧服务）
+    if IsUpgrade and (SelectedPort = ExistingPort) then
+      Result := True
+    else
+      Result := not IsPortInUse(SelectedPort);
+  end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -207,7 +219,8 @@ begin
       Result := False;
       Exit;
     end;
-    if IsPortInUse(Port) then
+    // 覆盖安装且使用原端口时跳过占用检查
+    if not (IsUpgrade and (Port = ExistingPort)) and IsPortInUse(Port) then
     begin
       MsgBox('端口 ' + PortStr + ' 已被占用，请选择其他端口', mbError, MB_OK);
       Result := False;
