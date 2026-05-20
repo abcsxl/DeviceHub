@@ -35,6 +35,15 @@ echo ""
 DEFAULT_PORT=5000
 HTTP_PORT=$DEFAULT_PORT
 
+# 检查是否为覆盖安装（读取现有配置中的端口）
+if [ -f "$APP_DIR/appsettings.json" ]; then
+  EXISTING_PORT=$(grep -o '"HttpPort": *[0-9]*' "$APP_DIR/appsettings.json" | grep -o '[0-9]*')
+  if [ -n "$EXISTING_PORT" ]; then
+    HTTP_PORT=$EXISTING_PORT
+    echo "检测到已安装版本，保留现有端口: $HTTP_PORT"
+  fi
+fi
+
 check_port() {
   local port=$1
   if command -v ss &> /dev/null; then
@@ -46,30 +55,37 @@ check_port() {
   fi
 }
 
-if check_port $DEFAULT_PORT; then
-  echo "默认端口 $DEFAULT_PORT 已被占用"
-  read -r -p "请输入新的 HTTP 端口 [$((DEFAULT_PORT + 1))]: " PORT_INPUT
+if check_port $HTTP_PORT; then
+  echo "端口 $HTTP_PORT 已被占用"
+  read -r -p "请输入新的 HTTP 端口 [$((HTTP_PORT + 1))]: " PORT_INPUT
   if [ -n "$PORT_INPUT" ]; then
     HTTP_PORT=$PORT_INPUT
   else
-    HTTP_PORT=$((DEFAULT_PORT + 1))
+    HTTP_PORT=$((HTTP_PORT + 1))
   fi
   echo "  → 使用端口: $HTTP_PORT"
 else
-  echo "  → HTTP 端口: $DEFAULT_PORT (可用)"
+  echo "  → HTTP 端口: $HTTP_PORT (可用)"
 fi
 
 echo ""
 
-# 1. 创建目录并复制文件
-echo "[1/6] 复制文件到 $APP_DIR ..."
+# 1. 停止并移除旧服务
+echo "[1/6] 检查并停止旧服务 ..."
+systemctl stop "$APP_NAME" 2>/dev/null || true
+systemctl disable "$APP_NAME" 2>/dev/null || true
+rm -f /etc/systemd/system/$SERVICE_FILE
+systemctl daemon-reload
+
+# 2. 创建目录并复制文件
+echo "[2/6] 复制文件到 $APP_DIR ..."
 mkdir -p "$APP_DIR"
 cp -r "$SCRIPT_DIR"/* "$APP_DIR/"
 rm -f "$APP_DIR/install.sh"
 chmod +x "$APP_DIR/DeviceHub.Service.Api"
 
-# 2. 写入硬件配置
-echo "[2/6] 写入硬件配置到 appsettings.json ..."
+# 3. 写入硬件配置
+echo "[3/6] 写入硬件配置到 appsettings.json ..."
 CONFIG_FILE="$APP_DIR/appsettings.json"
 if [ -f "$CONFIG_FILE" ]; then
   # 使用 awk 精确匹配 Pcsc 段的 Enabled 值
@@ -83,23 +99,24 @@ if [ -f "$CONFIG_FILE" ]; then
   ' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
 fi
 
-# 3. 写入端口配置
-echo "[3/6] 配置 HTTP 端口: $HTTP_PORT ..."
-if [ -f "$CONFIG_FILE" ] && [ "$HTTP_PORT" != "$DEFAULT_PORT" ]; then
-  sed -i "s/\"HttpPort\": $DEFAULT_PORT/\"HttpPort\": $HTTP_PORT/" "$CONFIG_FILE"
+# 4. 写入端口配置
+echo "[4/6] 配置 HTTP 端口: $HTTP_PORT ..."
+if [ -f "$CONFIG_FILE" ]; then
+  # 替换现有 HttpPort 值（无论是否为默认值）
+  sed -i "s/\"HttpPort\": *[0-9]*/\"HttpPort\": $HTTP_PORT/" "$CONFIG_FILE"
 fi
 
-# 4. 安装 systemd 服务
-echo "[4/6] 注册 systemd 服务 ..."
+# 5. 安装 systemd 服务
+echo "[5/6] 注册 systemd 服务 ..."
 cp "$SCRIPT_DIR/$SERVICE_FILE" /etc/systemd/system/
 systemctl daemon-reload
 
-# 5. 启用服务
-echo "[5/6] 启用服务（开机自启）..."
+# 6. 启用服务
+echo "[6/6] 启用服务（开机自启）..."
 systemctl enable "$APP_NAME"
 
-# 6. 启动服务
-echo "[6/6] 启动服务 ..."
+# 7. 启动服务
+echo "[7/6] 启动服务 ..."
 systemctl start "$APP_NAME"
 
 sleep 2
