@@ -70,6 +70,43 @@ begin
   Result := (ResultCode = 0);
 end;
 
+function TryParseInt(const S: String; out Value: Integer): Boolean;
+var
+  i, Len: Integer;
+  C: Char;
+  Negative: Boolean;
+begin
+  Result := False;
+  Value := 0;
+  Len := Length(S);
+  if Len = 0 then Exit;
+  
+  i := 1;
+  Negative := False;
+  if S[1] = '-' then
+  begin
+    Negative := True;
+    i := 2;
+  end
+  else if S[1] = '+' then
+  begin
+    i := 2;
+  end;
+  
+  if i > Len then Exit;
+  
+  while i <= Len do
+  begin
+    C := S[i];
+    if (C < '0') or (C > '9') then Exit;
+    Value := Value * 10 + (Ord(C) - Ord('0'));
+    i := i + 1;
+  end;
+  
+  if Negative then Value := -Value;
+  Result := True;
+end;
+
 function IsValidPort(Port: Integer): Boolean;
 begin
   Result := (Port >= 1) and (Port <= 65535);
@@ -100,7 +137,7 @@ begin
   if CurPageID = HttpPortPage.ID then
   begin
     PortStr := HttpPortPage.Values[0];
-    if not TryStrToInt(PortStr, Port) or not IsValidPort(Port) then
+    if not TryParseInt(PortStr, Port) or not IsValidPort(Port) then
     begin
       MsgBox('请输入有效的端口号（1-65535）', mbError, MB_OK);
       Result := False;
