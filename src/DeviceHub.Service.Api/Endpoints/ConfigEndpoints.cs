@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using DeviceHub.Devices.Contracts;
+using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
@@ -18,7 +19,8 @@ public static class ConfigEndpoints
             AppConfig update,
             IConfiguration config,
             IWebHostEnvironment env,
-            ILoggerFactory loggerFactory) =>
+            ILoggerFactory loggerFactory,
+            IStringLocalizer<Program> L) =>
         {
             var logger = loggerFactory.CreateLogger("Config");
             var current = BindConfig(config);
@@ -27,7 +29,7 @@ public static class ConfigEndpoints
             if (!merged.Validate())
                 return Results.Problem(
                     statusCode: 400,
-                    title: "配置校验失败",
+                    title: L["ConfigValidationFailed"],
                     detail: string.Join("; ", merged.ValidationErrors));
 
             var configPath = Path.Combine(env.ContentRootPath, "appsettings.json");

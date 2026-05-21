@@ -3,8 +3,10 @@ using System.Net.NetworkInformation;
 using DeviceHub.Devices.Contracts;
 using DeviceHub.Devices.PcscReader;
 using DeviceHub.Service.Api.Endpoints;
+using DeviceHub.Service.Api.Extensions;
 using DeviceHub.Service.Api.Models;
 using DeviceHub.Service.Api.WebSocket;
+using Microsoft.Extensions.Localization;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -70,12 +72,17 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 });
 
+builder.Services.AddAppLocalization();
+
 var app = builder.Build();
 
 var serviceState = app.Services.GetRequiredService<ServiceState>();
 serviceState.HttpPort = actualPort;
 
+WebSocketHandler.SetLocalizer(app.Services.GetRequiredService<IStringLocalizer<Program>>());
+
 app.UseCors();
+app.UseAppLocalization();
 app.UseWebSockets(new WebSocketOptions
 {
     KeepAliveInterval = TimeSpan.FromSeconds(30)

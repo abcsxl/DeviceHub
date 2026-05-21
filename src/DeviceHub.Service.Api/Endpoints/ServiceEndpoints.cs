@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Localization;
+
 namespace DeviceHub.Service.Api.Endpoints;
 
 public static class ServiceEndpoints
@@ -6,7 +8,8 @@ public static class ServiceEndpoints
     {
         app.MapPost("/api/service/restart", (
             IHostApplicationLifetime lifetime,
-            ILoggerFactory loggerFactory) =>
+            ILoggerFactory loggerFactory,
+            IStringLocalizer<Program> L) =>
         {
             var logger = loggerFactory.CreateLogger("Service");
             logger.LogWarning("服务即将重启");
@@ -15,7 +18,7 @@ public static class ServiceEndpoints
                 await Task.Delay(1000);
                 lifetime.StopApplication();
             });
-            return Results.Accepted((string?)null, new { message = "服务将在 1 秒后重启" });
+            return Results.Accepted((string?)null, new { message = L["ServiceRestarting"] });
         });
         return app;
     }
