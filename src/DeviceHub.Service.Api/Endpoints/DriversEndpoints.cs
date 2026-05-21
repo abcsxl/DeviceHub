@@ -1,4 +1,5 @@
 using DeviceHub.Service.Api.Models;
+using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
@@ -14,12 +15,13 @@ public static class DriversEndpoints
         app.MapPost("/api/drivers/{name}/enable", async (
             string name,
             DriverRegistry registry,
-            ILoggerFactory loggerFactory) =>
+            ILoggerFactory loggerFactory,
+            IStringLocalizer<Program> L) =>
         {
             var logger = loggerFactory.CreateLogger("Drivers");
             var entry = registry.Get(name);
             if (entry == null)
-                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = $"驱动 {name} 未注册" });
+                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name] });
 
             entry.Enabled = true;
             await entry.Service.InitAsync();
@@ -30,12 +32,13 @@ public static class DriversEndpoints
         app.MapPost("/api/drivers/{name}/disable", async (
             string name,
             DriverRegistry registry,
-            ILoggerFactory loggerFactory) =>
+            ILoggerFactory loggerFactory,
+            IStringLocalizer<Program> L) =>
         {
             var logger = loggerFactory.CreateLogger("Drivers");
             var entry = registry.Get(name);
             if (entry == null)
-                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = $"驱动 {name} 未注册" });
+                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name] });
 
             entry.Enabled = false;
             await entry.Service.ShutdownAsync();

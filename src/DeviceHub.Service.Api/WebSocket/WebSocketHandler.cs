@@ -3,6 +3,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using DeviceHub.Devices.Contracts;
+using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.WebSocket;
 
@@ -10,8 +11,14 @@ public static class WebSocketHandler
 {
     private static readonly ConcurrentDictionary<Guid, (System.Net.WebSockets.WebSocket Socket, DateTime LastPong)> _connections = new();
     private static readonly SemaphoreSlim _sendSemaphore = new(5, 5);
+    private static IStringLocalizer<Program>? _localizer;
 
     public static int ConnectionCount => _connections.Count;
+
+    public static void SetLocalizer(IStringLocalizer<Program> localizer)
+    {
+        _localizer = localizer;
+    }
 
     internal static IEnumerable<KeyValuePair<Guid, System.Net.WebSockets.WebSocket>> ActiveConnections
         => _connections
@@ -43,7 +50,7 @@ public static class WebSocketHandler
             if (!context.WebSockets.IsWebSocketRequest)
             {
                 context.Response.StatusCode = 400;
-                await context.Response.WriteAsync("Expected a WebSocket request");
+                await context.Response.WriteAsync(_localizer?["ExpectedWebSocketRequest"] ?? "Expected a WebSocket request");
                 return;
             }
 
@@ -151,7 +158,7 @@ public static class WebSocketHandler
 
             if (string.IsNullOrEmpty(target) || string.IsNullOrEmpty(action))
             {
-                await SendErrorAsync(ws, requestId!, "INVALID_PARAMETERS", "target and action are required");
+                await SendErrorAsync(ws, requestId!, "INVALID_PARAMETERS", _localizer?["TargetAndActionRequired"] ?? "target and action are required");
                 return;
             }
 
@@ -163,13 +170,13 @@ public static class WebSocketHandler
                     await HandlePcscAction(ws, services, parameters, requestId!, action);
                     break;
                 default:
-                    await SendErrorAsync(ws, requestId!, "INVALID_ACTION", $"Unknown target: {target}");
+                    await SendErrorAsync(ws, requestId!, "INVALID_ACTION", string.Format(_localizer?["UnknownTarget"] ?? "Unknown target: {0}", target));
                     break;
             }
         }
         catch (JsonException)
         {
-            await SendErrorAsync(ws, null, "INVALID_PARAMETERS", "Invalid JSON");
+            await SendErrorAsync(ws, null, "INVALID_PARAMETERS", _localizer?["InvalidJson"] ?? "Invalid JSON");
         }
     }
 
@@ -180,7 +187,7 @@ public static class WebSocketHandler
         var pcsc = services.GetService<IPcscService>();
         if (pcsc == null)
         {
-            await SendErrorAsync(ws, requestId, "DRIVER_NOT_FOUND", "PCSC 驱动未注册");
+            await SendErrorAsync(ws, requestId, "DRIVER_NOT_FOUND", _localizer?["PcscDriverNotRegistered"] ?? "PCSC driver is not registered");
             return;
         }
 
@@ -197,7 +204,7 @@ public static class WebSocketHandler
                 var readerName = GetParam(parameters, "readerName");
                 if (string.IsNullOrEmpty(readerName))
                 {
-                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "readerName is required");
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer?["ReaderNameRequired"] ?? "readerName is required");
                     return;
                 }
                 var info = await pcsc.GetReaderInfoAsync(readerName);
@@ -210,13 +217,13 @@ public static class WebSocketHandler
                 var readerName = GetParam(parameters, "readerName");
                 if (string.IsNullOrEmpty(readerName))
                 {
-                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "readerName is required");
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer?["ReaderNameRequired"] ?? "readerName is required");
                     return;
                 }
                 var atr = await pcsc.GetAtrAsync(readerName);
                 if (atr == null)
                 {
-                    await SendErrorAsync(ws, requestId, "CARD_NOT_PRESENT", "No card present in reader");
+                    await SendErrorAsync(ws, requestId, "CARD_NOT_PRESENT", _localizer?["CardNotPresent"] ?? "No card present in reader");
                     return;
                 }
                 data = new { atr };
@@ -229,7 +236,7 @@ public static class WebSocketHandler
                 var apdu = GetParam(parameters, "apdu");
                 if (string.IsNullOrEmpty(readerName) || string.IsNullOrEmpty(apdu))
                 {
-                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "readerName and apdu are required");
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer?["ReaderNameAndApduRequired"] ?? "readerName and apdu are required");
                     return;
                 }
                 var result = await pcsc.TransmitAsync(readerName, apdu);
@@ -243,7 +250,7 @@ public static class WebSocketHandler
             }
 
             default:
-                await SendErrorAsync(ws, requestId, "INVALID_ACTION", $"Unknown pcsc action: {action}");
+                await SendErrorAsync(ws, requestId, "INVALID_ACTION", string.Format(_localizer?["UnknownPcscAction"] ?? "Unknown pcsc action: {0}", action));
                 return;
         }
 

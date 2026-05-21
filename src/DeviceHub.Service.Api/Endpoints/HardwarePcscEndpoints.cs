@@ -1,4 +1,5 @@
 using DeviceHub.Devices.Contracts;
+using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
@@ -8,51 +9,51 @@ public static class HardwarePcscEndpoints
     {
         var group = app.MapGroup("/api/hardware/pcsc");
 
-        group.MapGet("/readers", async (HttpContext context) =>
+        group.MapGet("/readers", async (HttpContext context, IStringLocalizer<Program> L) =>
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Problem(statusCode: 503, title: "PCSC 驱动未注册");
+                return Results.Problem(statusCode: 503, title: L["PcscDriverNotRegistered"]);
 
             var readers = await service.ListReadersAsync();
             return Results.Ok(new { readers });
         });
 
-        group.MapGet("/readers/{name}", async (string name, HttpContext context) =>
+        group.MapGet("/readers/{name}", async (string name, HttpContext context, IStringLocalizer<Program> L) =>
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Problem(statusCode: 503, title: "PCSC 驱动未注册");
+                return Results.Problem(statusCode: 503, title: L["PcscDriverNotRegistered"]);
 
             var info = await service.GetReaderInfoAsync(name);
             return info.Name == name
                 ? Results.Ok(info)
-                : Results.NotFound(new { error = "CARD_NOT_PRESENT", message = $"Reader not found: {name}" });
+                : Results.NotFound(new { error = "CARD_NOT_PRESENT", message = L["ReaderNotFound", name] });
         });
 
-        group.MapGet("/readers/{name}/atr", async (string name, HttpContext context) =>
+        group.MapGet("/readers/{name}/atr", async (string name, HttpContext context, IStringLocalizer<Program> L) =>
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Problem(statusCode: 503, title: "PCSC 驱动未注册");
+                return Results.Problem(statusCode: 503, title: L["PcscDriverNotRegistered"]);
 
             var atr = await service.GetAtrAsync(name);
             return atr != null
                 ? Results.Ok(new { atr })
-                : Results.NotFound(new { error = "CARD_NOT_PRESENT", message = "No card present in reader" });
+                : Results.NotFound(new { error = "CARD_NOT_PRESENT", message = L["CardNotPresent"] });
         });
 
-        group.MapPost("/transmit", async (TransmitRequest request, HttpContext context) =>
+        group.MapPost("/transmit", async (TransmitRequest request, HttpContext context, IStringLocalizer<Program> L) =>
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Problem(statusCode: 503, title: "PCSC 驱动未注册");
+                return Results.Problem(statusCode: 503, title: L["PcscDriverNotRegistered"]);
 
             if (string.IsNullOrEmpty(request.ReaderName) || string.IsNullOrEmpty(request.Apdu))
-                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = "readerName and apdu are required" });
+                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = L["ReaderNameAndApduRequired"] });
 
             if (request.Apdu.Length % 2 != 0)
-                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = "apdu must be a hex string" });
+                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = L["ApduMustBeHexString"] });
 
             var result = await service.TransmitAsync(request.ReaderName, request.Apdu);
             if (!result.Success)
