@@ -8,7 +8,7 @@ public static class StatusEndpoints
 {
     public static WebApplication MapStatusEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/status", (ServiceState state, DriverRegistry registry) =>
+        app.MapGet("/api/status", (ServiceState state, DriverRegistry registry, WebSocketHandler wsHandler) =>
         {
             var drivers = registry.GetAll();
             return new ServiceInfo(
@@ -17,7 +17,7 @@ public static class StatusEndpoints
                 state.HttpPort,
                 state.StartTime,
                 DateTime.UtcNow - state.StartTime,
-                WebSocketHandler.ConnectionCount,
+                wsHandler.ConnectionCount,
                 drivers
             );
         });

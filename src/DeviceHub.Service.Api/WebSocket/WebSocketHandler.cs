@@ -7,30 +7,36 @@ using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.WebSocket;
 
-public static class WebSocketHandler
+public sealed class WebSocketHandler : IDisposable
 {
-    private static readonly ConcurrentDictionary<Guid, (System.Net.WebSockets.WebSocket Socket, DateTime LastPong)> _connections = new();
-    private static readonly SemaphoreSlim _sendSemaphore = new(5, 5);
-    private static IStringLocalizer<Program>? _localizer;
+    private readonly ConcurrentDictionary<Guid, ConnectionEntry> _connections = new();
+    private readonly SemaphoreSlim _sendSemaphore = new(5, 5);
+    private readonly IStringLocalizer<Program> _localizer;
+    private bool _disposed;
 
-    public static int ConnectionCount => _connections.Count;
+    public int ConnectionCount => _connections.Count;
 
-    public static void SetLocalizer(IStringLocalizer<Program> localizer)
+    public WebSocketHandler(IStringLocalizer<Program> localizer)
     {
         _localizer = localizer;
     }
 
-    internal static IEnumerable<KeyValuePair<Guid, System.Net.WebSockets.WebSocket>> ActiveConnections
+    internal IEnumerable<KeyValuePair<Guid, System.Net.WebSockets.WebSocket>> ActiveConnections
         => _connections
             .Where(kvp => kvp.Value.Socket.State == WebSocketState.Open)
             .Select(kvp => new KeyValuePair<Guid, System.Net.WebSockets.WebSocket>(kvp.Key, kvp.Value.Socket));
 
-    internal static void RemoveConnection(Guid id)
+    internal IReadOnlySet<string>? GetSubscribedEvents(Guid id)
+    {
+        return _connections.TryGetValue(id, out var entry) ? entry.SubscribedEvents : null;
+    }
+
+    internal void RemoveConnection(Guid id)
     {
         _connections.TryRemove(id, out _);
     }
 
-    internal static bool TryUpdatePingTime(Guid id)
+    internal bool TryUpdatePingTime(Guid id)
     {
         if (_connections.TryGetValue(id, out var entry) && entry.Socket.State == WebSocketState.Open)
         {
@@ -43,20 +49,22 @@ public static class WebSocketHandler
         return false;
     }
 
-    public static WebApplication MapWebSocketHandler(this WebApplication app, string path = "/ws")
+    internal void MapRoutes(WebApplication app, string path = "/ws")
     {
         app.Map(path, async (HttpContext context) =>
         {
             if (!context.WebSockets.IsWebSocketRequest)
             {
                 context.Response.StatusCode = 400;
-                await context.Response.WriteAsync(_localizer?["ExpectedWebSocketRequest"] ?? "Expected a WebSocket request");
+                await context.Response.WriteAsync(_localizer["ExpectedWebSocketRequest"]);
                 return;
             }
 
             var ws = await context.WebSockets.AcceptWebSocketAsync();
             var connectionId = Guid.NewGuid();
-            _connections.TryAdd(connectionId, (ws, DateTime.UtcNow));
+
+            var subscribedEvents = ParseSubscribedEvents(context.Request.Query["events"]);
+            _connections.TryAdd(connectionId, new ConnectionEntry(ws, DateTime.UtcNow, subscribedEvents));
 
             try
             {
@@ -70,10 +78,9 @@ public static class WebSocketHandler
                 _connections.TryRemove(connectionId, out _);
             }
         });
-        return app;
     }
 
-    public static async Task SendEventAsync(string target, string eventName, object data)
+    public async Task SendEventAsync(string target, string eventName, object data)
     {
         var acquired = await _sendSemaphore.WaitAsync(TimeSpan.FromSeconds(1));
         if (!acquired) return;
@@ -92,19 +99,22 @@ public static class WebSocketHandler
             var bytes = Encoding.UTF8.GetBytes(payload);
             var segment = new ArraySegment<byte>(bytes);
 
-            foreach (var (id, (socket, _)) in _connections)
+            foreach (var (id, entry) in _connections)
             {
-                if (socket.State == WebSocketState.Open)
+                if (entry.Socket.State != WebSocketState.Open)
+                    continue;
+
+                if (entry.SubscribedEvents != null && !entry.SubscribedEvents.Contains(eventName) && !entry.SubscribedEvents.Contains("*"))
+                    continue;
+
+                try
                 {
-                    try
-                    {
-                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                        await socket.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token);
-                    }
-                    catch
-                    {
-                        _connections.TryRemove(id, out _);
-                    }
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await entry.Socket.SendAsync(segment, WebSocketMessageType.Text, true, cts.Token);
+                }
+                catch
+                {
+                    _connections.TryRemove(id, out _);
                 }
             }
         }
@@ -114,7 +124,7 @@ public static class WebSocketHandler
         }
     }
 
-    private static async Task HandleConnectionAsync(Guid connectionId, System.Net.WebSockets.WebSocket ws, IServiceProvider services)
+    private async Task HandleConnectionAsync(Guid connectionId, System.Net.WebSockets.WebSocket ws, IServiceProvider services)
     {
         var buffer = new byte[1024 * 16];
 
@@ -136,7 +146,7 @@ public static class WebSocketHandler
         }
     }
 
-    private static async Task HandleTextMessageAsync(Guid connectionId, System.Net.WebSockets.WebSocket ws, string json, IServiceProvider services)
+    private async Task HandleTextMessageAsync(Guid connectionId, System.Net.WebSockets.WebSocket ws, string json, IServiceProvider services)
     {
         try
         {
@@ -146,7 +156,7 @@ public static class WebSocketHandler
             if (root.TryGetProperty("type", out var typeEl) && typeEl.GetString() == "pong")
             {
                 if (_connections.TryGetValue(connectionId, out var entry))
-                    _connections.TryUpdate(connectionId, (entry.Socket, DateTime.UtcNow), entry);
+                    _connections.TryUpdate(connectionId, new ConnectionEntry(entry.Socket, DateTime.UtcNow, entry.SubscribedEvents), entry);
                 return;
             }
 
@@ -158,7 +168,7 @@ public static class WebSocketHandler
 
             if (string.IsNullOrEmpty(target) || string.IsNullOrEmpty(action))
             {
-                await SendErrorAsync(ws, requestId!, "INVALID_PARAMETERS", _localizer?["TargetAndActionRequired"] ?? "target and action are required");
+                await SendErrorAsync(ws, requestId!, "INVALID_PARAMETERS", _localizer["TargetAndActionRequired"]);
                 return;
             }
 
@@ -170,24 +180,24 @@ public static class WebSocketHandler
                     await HandlePcscAction(ws, services, parameters, requestId!, action);
                     break;
                 default:
-                    await SendErrorAsync(ws, requestId!, "INVALID_ACTION", string.Format(_localizer?["UnknownTarget"] ?? "Unknown target: {0}", target));
+                    await SendErrorAsync(ws, requestId!, "INVALID_ACTION", string.Format(_localizer["UnknownTarget"], target));
                     break;
             }
         }
         catch (JsonException)
         {
-            await SendErrorAsync(ws, null, "INVALID_PARAMETERS", _localizer?["InvalidJson"] ?? "Invalid JSON");
+            await SendErrorAsync(ws, null, "INVALID_PARAMETERS", _localizer["InvalidJson"]);
         }
     }
 
-    private static async Task HandlePcscAction(
+    private async Task HandlePcscAction(
         System.Net.WebSockets.WebSocket ws, IServiceProvider services, JsonElement parameters,
         string requestId, string action)
     {
         var pcsc = services.GetService<IPcscService>();
         if (pcsc == null)
         {
-            await SendErrorAsync(ws, requestId, "DRIVER_NOT_FOUND", _localizer?["PcscDriverNotRegistered"] ?? "PCSC driver is not registered");
+            await SendErrorAsync(ws, requestId, "DRIVER_NOT_FOUND", _localizer["PcscDriverNotRegistered"]);
             return;
         }
 
@@ -204,7 +214,7 @@ public static class WebSocketHandler
                 var readerName = GetParam(parameters, "readerName");
                 if (string.IsNullOrEmpty(readerName))
                 {
-                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer?["ReaderNameRequired"] ?? "readerName is required");
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer["ReaderNameRequired"]);
                     return;
                 }
                 var info = await pcsc.GetReaderInfoAsync(readerName);
@@ -217,13 +227,13 @@ public static class WebSocketHandler
                 var readerName = GetParam(parameters, "readerName");
                 if (string.IsNullOrEmpty(readerName))
                 {
-                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer?["ReaderNameRequired"] ?? "readerName is required");
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer["ReaderNameRequired"]);
                     return;
                 }
                 var atr = await pcsc.GetAtrAsync(readerName);
                 if (atr == null)
                 {
-                    await SendErrorAsync(ws, requestId, "CARD_NOT_PRESENT", _localizer?["CardNotPresent"] ?? "No card present in reader");
+                    await SendErrorAsync(ws, requestId, "CARD_NOT_PRESENT", _localizer["CardNotPresent"]);
                     return;
                 }
                 data = new { atr };
@@ -236,7 +246,7 @@ public static class WebSocketHandler
                 var apdu = GetParam(parameters, "apdu");
                 if (string.IsNullOrEmpty(readerName) || string.IsNullOrEmpty(apdu))
                 {
-                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer?["ReaderNameAndApduRequired"] ?? "readerName and apdu are required");
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer["ReaderNameAndApduRequired"]);
                     return;
                 }
                 var result = await pcsc.TransmitAsync(readerName, apdu);
@@ -250,7 +260,7 @@ public static class WebSocketHandler
             }
 
             default:
-                await SendErrorAsync(ws, requestId, "INVALID_ACTION", string.Format(_localizer?["UnknownPcscAction"] ?? "Unknown pcsc action: {0}", action));
+                await SendErrorAsync(ws, requestId, "INVALID_ACTION", string.Format(_localizer["UnknownPcscAction"], action));
                 return;
         }
 
@@ -273,7 +283,7 @@ public static class WebSocketHandler
             ? val.GetString()
             : null;
 
-    private static async Task SendErrorAsync(System.Net.WebSockets.WebSocket ws, string? requestId, string code, string message)
+    private async Task SendErrorAsync(System.Net.WebSockets.WebSocket ws, string? requestId, string code, string message)
     {
         var response = new
         {
@@ -287,4 +297,28 @@ public static class WebSocketHandler
         var bytes = Encoding.UTF8.GetBytes(json);
         await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
     }
+
+    private static IReadOnlySet<string>? ParseSubscribedEvents(string? eventsParam)
+    {
+        if (string.IsNullOrWhiteSpace(eventsParam))
+            return null;
+
+        var events = eventsParam
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return events.Count > 0 ? events : null;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _sendSemaphore.Dispose();
+    }
+
+    private sealed record ConnectionEntry(
+        System.Net.WebSockets.WebSocket Socket,
+        DateTime LastPong,
+        IReadOnlySet<string>? SubscribedEvents);
 }
