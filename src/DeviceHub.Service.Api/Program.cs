@@ -6,7 +6,6 @@ using DeviceHub.Service.Api.Endpoints;
 using DeviceHub.Service.Api.Extensions;
 using DeviceHub.Service.Api.Models;
 using DeviceHub.Service.Api.WebSocket;
-using Microsoft.Extensions.Localization;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -62,6 +61,7 @@ builder.Logging.AddProvider(logProvider);
 
 builder.Services.AddSingleton<DriverRegistry>();
 builder.Services.AddSingleton<ServiceState>();
+builder.Services.AddSingleton<WebSocketHandler>();
 
 builder.Services.AddPcscService(builder.Configuration);
 builder.Services.AddHostedService<PingService>();
@@ -79,8 +79,6 @@ var app = builder.Build();
 var serviceState = app.Services.GetRequiredService<ServiceState>();
 serviceState.HttpPort = actualPort;
 
-WebSocketHandler.SetLocalizer(app.Services.GetRequiredService<IStringLocalizer<Program>>());
-
 app.UseCors();
 app.UseAppLocalization();
 app.UseWebSockets(new WebSocketOptions
@@ -90,6 +88,7 @@ app.UseWebSockets(new WebSocketOptions
 
 var registry = app.Services.GetRequiredService<DriverRegistry>();
 var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+var wsHandler = app.Services.GetRequiredService<WebSocketHandler>();
 
 try
 {
@@ -97,7 +96,7 @@ try
     registry.Register("PcscReader", pcscService);
     pcscService.CardStatusChanged += (_, args) =>
     {
-        _ = WebSocketHandler.SendEventAsync("pcsc", "card_status_changed", args);
+        _ = wsHandler.SendEventAsync("pcsc", "card_status_changed", args);
     };
     startupLogger.LogInformation("PCSC 驱动程序已注册");
 }
@@ -112,7 +111,8 @@ app.MapStatusEndpoints()
    .MapDriversEndpoints()
    .MapServiceEndpoints()
    .MapHealthEndpoints()
-   .MapHardwarePcscEndpoints()
-   .MapWebSocketHandler();
+   .MapHardwarePcscEndpoints();
+
+wsHandler.MapRoutes(app);
 
 app.Run();

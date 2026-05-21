@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 
@@ -10,10 +9,12 @@ public sealed class PingService : BackgroundService
     private static readonly TimeSpan PongTimeout = TimeSpan.FromSeconds(5);
 
     private readonly ILogger<PingService> _logger;
+    private readonly WebSocketHandler _wsHandler;
 
-    public PingService(ILogger<PingService> logger)
+    public PingService(ILogger<PingService> logger, WebSocketHandler wsHandler)
     {
         _logger = logger;
+        _wsHandler = wsHandler;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -25,18 +26,18 @@ public sealed class PingService : BackgroundService
         {
             await Task.Delay(PingInterval, stoppingToken);
 
-            foreach (var (id, ws) in WebSocketHandler.ActiveConnections)
+            foreach (var (id, ws) in _wsHandler.ActiveConnections)
             {
                 if (ws.State != WebSocketState.Open)
                 {
-                    WebSocketHandler.RemoveConnection(id);
+                    _wsHandler.RemoveConnection(id);
                     continue;
                 }
 
-                if (!WebSocketHandler.TryUpdatePingTime(id))
+                if (!_wsHandler.TryUpdatePingTime(id))
                 {
                     _logger.LogWarning("连接 {Id} 心跳超时，关闭", id);
-                    WebSocketHandler.RemoveConnection(id);
+                    _wsHandler.RemoveConnection(id);
                     try
                     {
                         await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Ping timeout", CancellationToken.None);
@@ -54,7 +55,7 @@ public sealed class PingService : BackgroundService
                 }
                 catch
                 {
-                    WebSocketHandler.RemoveConnection(id);
+                    _wsHandler.RemoveConnection(id);
                 }
             }
         }
