@@ -67,6 +67,14 @@
     <value>无默认配置可用</value>
   </data>
 
+  <!-- Transit Card Endpoints -->
+  <data name="TransitCardNotRegistered" xml:space="preserve">
+    <value>交通卡服务未注册</value>
+  </data>
+  <data name="InvalidRechargeAmount" xml:space="preserve">
+    <value>充值金额必须大于 0</value>
+  </data>
+
   <!-- Drivers Endpoints -->
   <data name="DriverNotFound" xml:space="preserve">
     <value>驱动 {0} 未注册</value>

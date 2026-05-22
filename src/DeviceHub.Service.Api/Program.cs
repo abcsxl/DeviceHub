@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.NetworkInformation;
 using DeviceHub.Devices.Contracts;
 using DeviceHub.Devices.PcscReader.Extensions;
+using DeviceHub.Devices.TransitCard.Extensions;
+using DeviceHub.DriverLoader;
 using DeviceHub.Service.Api.Endpoints;
 using DeviceHub.Service.Api.Extensions;
 using DeviceHub.Service.Api.Models;
@@ -64,6 +66,8 @@ builder.Services.AddSingleton<ServiceState>();
 builder.Services.AddSingleton<WebSocketHandler>();
 
 builder.Services.AddPcscService(builder.Configuration);
+builder.Services.AddTransitCardService(builder.Configuration);
+builder.Services.LoadExternalDrivers(builder.Configuration);
 builder.Services.AddHostedService<PingService>();
 
 builder.Services.AddCors(options =>
@@ -117,7 +121,8 @@ app.MapStatusEndpoints()
    .MapDriversEndpoints()
    .MapServiceEndpoints()
    .MapHealthEndpoints()
-   .MapHardwarePcscEndpoints();
+   .MapHardwarePcscEndpoints()
+   .MapHardwareTransitCardEndpoints();
 
 wsHandler.MapRoutes(app);
 

@@ -215,6 +215,9 @@ public sealed class WebSocketHandler : IDisposable
                 case "pcsc":
                     await HandlePcscAction(ws, services, parameters, requestId!, action);
                     break;
+                case "transitcard":
+                    await HandleTransitCardAction(ws, services, parameters, requestId!, action);
+                    break;
                 default:
                     await SendErrorAsync(ws, requestId!, "INVALID_ACTION", string.Format(_localizer["UnknownTarget"], target));
                     break;
@@ -299,6 +302,100 @@ public sealed class WebSocketHandler : IDisposable
             default:
                 await SendErrorAsync(ws, requestId, "INVALID_ACTION", string.Format(_localizer["UnknownPcscAction"], action));
                 return;
+        }
+
+        var response = new
+        {
+            requestId,
+            success = true,
+            data,
+            timestamp = DateTime.UtcNow
+        };
+
+        var responseJson = JsonSerializer.Serialize(response);
+        var bytes = Encoding.UTF8.GetBytes(responseJson);
+        await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+
+    private async Task HandleTransitCardAction(
+        System.Net.WebSockets.WebSocket ws, IServiceProvider services, JsonElement parameters,
+        string requestId, string action)
+    {
+        var transitCard = services.GetService<ITransitCardService>();
+        if (transitCard == null)
+        {
+            await SendErrorAsync(ws, requestId, "DRIVER_NOT_FOUND", "Transit card service not available");
+            return;
+        }
+
+        object? data = null;
+        try
+        {
+            switch (action)
+            {
+                case "read_card_info":
+                {
+                    var readerName = GetParam(parameters, "readerName");
+                    var info = await transitCard.ReadCardInfoAsync(readerName);
+                    data = info;
+                    break;
+                }
+
+                case "read_balance":
+                {
+                    var readerName = GetParam(parameters, "readerName");
+                    var balance = await transitCard.ReadBalanceAsync(readerName);
+                    data = balance;
+                    break;
+                }
+
+                case "read_transactions":
+                {
+                    var readerName = GetParam(parameters, "readerName");
+                    var countStr = GetParam(parameters, "count");
+                    var count = int.TryParse(countStr, out var c) ? c : 10;
+                    var records = await transitCard.ReadTransactionsAsync(count, readerName);
+                    data = new { records };
+                    break;
+                }
+
+                case "recharge_init":
+                {
+                    var readerName = GetParam(parameters, "readerName");
+                    var amountStr = GetParam(parameters, "amount");
+                    if (!decimal.TryParse(amountStr, out var amount) || amount <= 0)
+                    {
+                        await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "Invalid amount");
+                        return;
+                    }
+                    var initResult = await transitCard.RechargeInitAsync(amount, readerName);
+                    data = initResult;
+                    break;
+                }
+
+                case "recharge_execute":
+                {
+                    var sessionId = GetParam(parameters, "sessionId");
+                    var macSignature = GetParam(parameters, "macSignature");
+                    if (string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(macSignature))
+                    {
+                        await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "sessionId and macSignature are required");
+                        return;
+                    }
+                    var execResult = await transitCard.RechargeExecuteAsync(sessionId, macSignature);
+                    data = execResult;
+                    break;
+                }
+
+                default:
+                    await SendErrorAsync(ws, requestId, "INVALID_ACTION", "Unknown transitcard action");
+                    return;
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            await SendErrorAsync(ws, requestId, "CARD_NOT_PRESENT", ex.Message);
+            return;
         }
 
         var response = new
