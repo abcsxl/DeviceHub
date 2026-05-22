@@ -7,7 +7,7 @@ internal static class NativeMethods
     private const string WinSCard = "winscard.dll";
     private const string UnixSCard = "libpcsclite.so.1";
 
-    [DllImport(WinSCard, EntryPoint = "SCardEstablishContext", CallingConvention = CallingConvention.StdCall)]
+    [DllImport(WinSCard, EntryPoint = "SCardEstablishContext", ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
     private static extern int SCardEstablishContextWin(uint dwScope, nint pvReserved1, nint pvReserved2, out nint phContext);
 
     [DllImport(UnixSCard, EntryPoint = "SCardEstablishContext")]
@@ -21,7 +21,7 @@ internal static class NativeMethods
             return SCardEstablishContextUnix(dwScope, nint.Zero, nint.Zero, out phContext);
     }
 
-    [DllImport(WinSCard, EntryPoint = "SCardReleaseContext", CallingConvention = CallingConvention.StdCall)]
+    [DllImport(WinSCard, EntryPoint = "SCardReleaseContext", ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
     private static extern int SCardReleaseContextWin(nint hContext);
 
     [DllImport(UnixSCard, EntryPoint = "SCardReleaseContext")]
@@ -35,7 +35,7 @@ internal static class NativeMethods
             return SCardReleaseContextUnix(hContext);
     }
 
-    [DllImport(WinSCard, EntryPoint = "SCardListReaders", CallingConvention = CallingConvention.StdCall)]
+    [DllImport(WinSCard, EntryPoint = "SCardListReadersW", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall)]
     private static extern int SCardListReadersWin(nint hContext, byte[]? mszGroups, byte[]? mszReaders, ref uint pcchReaders);
 
     [DllImport(UnixSCard, EntryPoint = "SCardListReaders")]
@@ -49,8 +49,8 @@ internal static class NativeMethods
             return SCardListReadersUnix(hContext, null, mszReaders, ref pcchReaders);
     }
 
-    [DllImport(WinSCard, EntryPoint = "SCardConnect", CallingConvention = CallingConvention.StdCall)]
-    private static extern int SCardConnectWin(nint hContext, [MarshalAs(UnmanagedType.LPWStr)] string szReader, uint dwShareMode, uint dwPreferredProtocols, out nint phCard, out uint pdwActiveProtocol);
+    [DllImport(WinSCard, EntryPoint = "SCardConnectW", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall)]
+    private static extern int SCardConnectWin(nint hContext, string szReader, uint dwShareMode, uint dwPreferredProtocols, out nint phCard, out uint pdwActiveProtocol);
 
     [DllImport(UnixSCard, EntryPoint = "SCardConnect", CharSet = CharSet.Ansi)]
     private static extern int SCardConnectUnix(nint hContext, string szReader, uint dwShareMode, uint dwPreferredProtocols, out nint phCard, out uint pdwActiveProtocol);
@@ -63,7 +63,7 @@ internal static class NativeMethods
             return SCardConnectUnix(hContext, szReader, dwShareMode, dwPreferredProtocols, out phCard, out pdwActiveProtocol);
     }
 
-    [DllImport(WinSCard, EntryPoint = "SCardDisconnect", CallingConvention = CallingConvention.StdCall)]
+    [DllImport(WinSCard, EntryPoint = "SCardDisconnect", ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
     private static extern int SCardDisconnectWin(nint hCard, uint dwDisposition);
 
     [DllImport(UnixSCard, EntryPoint = "SCardDisconnect")]
@@ -77,7 +77,7 @@ internal static class NativeMethods
             return SCardDisconnectUnix(hCard, dwDisposition);
     }
 
-    [DllImport(WinSCard, EntryPoint = "SCardTransmit", CallingConvention = CallingConvention.StdCall)]
+    [DllImport(WinSCard, EntryPoint = "SCardTransmit", ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
     private static extern int SCardTransmitWin(nint hCard, ref SCardIORequest pioSendPci, byte[] pbSendBuffer, uint cbSendLength, ref SCardIORequest pioRecvPci, byte[] pbRecvBuffer, ref uint pcbRecvLength);
 
     [DllImport(UnixSCard, EntryPoint = "SCardTransmit", CharSet = CharSet.Ansi)]
@@ -91,7 +91,7 @@ internal static class NativeMethods
             return SCardTransmitUnix(hCard, ref pioSendPci, pbSendBuffer, cbSendLength, ref pioRecvPci, pbRecvBuffer, ref pcbRecvLength);
     }
 
-    [DllImport(WinSCard, EntryPoint = "SCardStatus", CallingConvention = CallingConvention.StdCall)]
+    [DllImport(WinSCard, EntryPoint = "SCardStatusW", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall)]
     private static extern int SCardStatusWin(nint hCard, byte[]? szReaderName, ref uint pcchReaderLen, out uint pdwState, out uint pdwProtocol, byte[]? pbAtr, ref uint pcbAtrLen);
 
     [DllImport(UnixSCard, EntryPoint = "SCardStatus", CharSet = CharSet.Ansi)]
@@ -105,7 +105,7 @@ internal static class NativeMethods
             return SCardStatusUnix(hCard, szReaderName, ref pcchReaderLen, out pdwState, out pdwProtocol, pbAtr, ref pcbAtrLen);
     }
 
-    [DllImport(WinSCard, EntryPoint = "SCardGetAttrib", CallingConvention = CallingConvention.StdCall)]
+    [DllImport(WinSCard, EntryPoint = "SCardGetAttrib", ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
     private static extern int SCardGetAttribWin(nint hCard, uint dwAttribId, byte[]? pbAttr, ref uint pcbAttrLen);
 
     [DllImport(UnixSCard, EntryPoint = "SCardGetAttrib")]
@@ -119,7 +119,7 @@ internal static class NativeMethods
             return SCardGetAttribUnix(hCard, dwAttribId, pbAttr, ref pcbAttrLen);
     }
 
-    [DllImport(WinSCard, EntryPoint = "SCardCancel", CallingConvention = CallingConvention.StdCall)]
+    [DllImport(WinSCard, EntryPoint = "SCardCancel", ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
     private static extern int SCardCancelWin(nint hContext);
 
     [DllImport(UnixSCard, EntryPoint = "SCardCancel")]
@@ -137,7 +137,6 @@ internal static class NativeMethods
     public const uint SCardShareShared = 1;
     public const uint SCardProtocolTx = 3;
     public const uint SCardLeaveCard = 0;
-    public const uint SCardAttrAtrString = 0x0303;
 }
 
 [StructLayout(LayoutKind.Sequential)]

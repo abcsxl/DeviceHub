@@ -13,7 +13,7 @@ public static class HardwareTransitCardEndpoints
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"] }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
 
             var readers = await service.GetAvailableReadersAsync();
             return Results.Ok(new { readers });
@@ -23,7 +23,7 @@ public static class HardwareTransitCardEndpoints
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"] }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
 
             try
             {
@@ -40,7 +40,7 @@ public static class HardwareTransitCardEndpoints
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"] }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
 
             try
             {
@@ -57,7 +57,7 @@ public static class HardwareTransitCardEndpoints
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"] }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
 
             try
             {
@@ -74,10 +74,10 @@ public static class HardwareTransitCardEndpoints
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"] }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
 
             if (req.Amount <= 0)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = L["InvalidRechargeAmount"] }, statusCode: 400);
+                return Results.Json(new { error = "INVALID_PARAMETERS", message = L["InvalidRechargeAmount"].Value }, statusCode: 400);
 
             try
             {
@@ -94,7 +94,7 @@ public static class HardwareTransitCardEndpoints
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"] }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
 
             if (string.IsNullOrEmpty(req.SessionId) || string.IsNullOrEmpty(req.MacSignature))
                 return Results.Json(new { error = "INVALID_PARAMETERS", message = "sessionId and macSignature are required" }, statusCode: 400);

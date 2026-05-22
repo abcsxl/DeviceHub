@@ -26,7 +26,7 @@ public static class DriversEndpoints
             var logger = loggerFactory.CreateLogger("Drivers");
             var entry = registry.Get(name);
             if (entry == null)
-                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name] });
+                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name].Value });
 
             entry.Enabled = true;
             try
@@ -54,7 +54,7 @@ public static class DriversEndpoints
             var logger = loggerFactory.CreateLogger("Drivers");
             var entry = registry.Get(name);
             if (entry == null)
-                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name] });
+                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name].Value });
 
             entry.Enabled = false;
             try
