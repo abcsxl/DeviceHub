@@ -118,14 +118,7 @@ public class PcscService : IPcscService, IDisposable
 
             try
             {
-                var atrLen = 0u;
-                rc = NativeMethods.GetAttrib(hCard, NativeMethods.SCardAttrAtrString, null, ref atrLen);
-                if (rc != Success || atrLen == 0)
-                    return Task.FromResult<string?>(null);
-
-                var atrBuf = new byte[atrLen];
-                rc = NativeMethods.GetAttrib(hCard, NativeMethods.SCardAttrAtrString, atrBuf, ref atrLen);
-                return Task.FromResult(rc == Success ? BytesToHex(atrBuf) : null);
+                return Task.FromResult(GetAtrFromHandle(hCard));
             }
             finally
             {
@@ -199,41 +192,23 @@ public class PcscService : IPcscService, IDisposable
 
     private List<string> GetReaderNames()
     {
-        var bufLen = 0u;
-        var rc = NativeMethods.ListReaders(_context, null, ref bufLen);
+        var charsLen = 0u;
+        var rc = NativeMethods.ListReaders(_context, null, ref charsLen);
 
-        if (rc != Success || bufLen == 0)
+        if (rc != Success || charsLen == 0)
             return [];
 
-        // On Windows, SCardListReadersW returns length in WCHARs (2 bytes each)
-        if (OperatingSystem.IsWindows())
-            bufLen *= 2;
+        // With ExactSpelling=true, SCardListReaders = W version (UTF-16),
+        // pcchReaders is in WCHARs, not bytes
+        var buf = new byte[charsLen * 2];
+        rc = NativeMethods.ListReaders(_context, buf, ref charsLen);
 
-        var buf = new byte[bufLen];
-        rc = NativeMethods.ListReaders(_context, buf, ref bufLen);
-
-        if (rc != Success || buf.Length == 0)
+        if (rc != Success)
             return [];
 
-        var names = new List<string>();
-        var offset = 0;
-
-        var encoding = OperatingSystem.IsWindows() ? Encoding.Unicode : Encoding.UTF8;
-
-        while (offset < buf.Length)
-        {
-            var end = Array.IndexOf(buf, (byte)0, offset);
-            if (end < 0 || end == offset)
-                break;
-
-            var name = encoding.GetString(buf, offset, end - offset);
-            if (!string.IsNullOrEmpty(name))
-                names.Add(name);
-
-            offset = end + (OperatingSystem.IsWindows() ? 2 : 1);
-        }
-
-        return names;
+        // charsLen now = total WCHARs written (including double null terminator)
+        var str = Encoding.Unicode.GetString(buf, 0, (int)charsLen * 2);
+        return str.Split('\0', StringSplitOptions.RemoveEmptyEntries).ToList();
     }
 
     private ReaderInfo GetReaderInfoInternal(string readerName)
@@ -247,15 +222,7 @@ public class PcscService : IPcscService, IDisposable
 
         try
         {
-            var atrLen = 0u;
-            rc = NativeMethods.GetAttrib(hCard, NativeMethods.SCardAttrAtrString, null, ref atrLen);
-            if (rc != Success || atrLen == 0)
-                return new ReaderInfo(readerName, true);
-
-            var atrBuf = new byte[atrLen];
-            rc = NativeMethods.GetAttrib(hCard, NativeMethods.SCardAttrAtrString, atrBuf, ref atrLen);
-            var atr = rc == Success ? BytesToHex(atrBuf) : null;
-
+            var atr = GetAtrFromHandle(hCard);
             return new ReaderInfo(readerName, true, atr);
         }
         finally
@@ -363,4 +330,16 @@ public class PcscService : IPcscService, IDisposable
 
     private static string BytesToHex(byte[] bytes)
         => BitConverter.ToString(bytes).Replace("-", "");
+
+    private static string? GetAtrFromHandle(nint hCard)
+    {
+        var atrLen = 33u;
+        var atrBuf = new byte[atrLen];
+        var dummyLen = 0u;
+        var rc = NativeMethods.Status(hCard, null, ref dummyLen, out _, out _, atrBuf, ref atrLen);
+        if (rc != Success || atrLen == 0)
+            return null;
+        Array.Resize(ref atrBuf, (int)atrLen);
+        return BytesToHex(atrBuf);
+    }
 }

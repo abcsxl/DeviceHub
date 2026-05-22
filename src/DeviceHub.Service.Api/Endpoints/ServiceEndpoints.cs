@@ -18,7 +18,7 @@ public static class ServiceEndpoints
                 await Task.Delay(1000);
                 lifetime.StopApplication();
             });
-            return Results.Accepted((string?)null, new { message = L["ServiceRestarting"] });
+            return Results.Accepted((string?)null, new { message = L["ServiceRestarting"].Value });
         });
         return app;
     }
