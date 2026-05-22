@@ -1,4 +1,3 @@
-using System.Text;
 using DeviceHub.Devices.Contracts;
 using Microsoft.Extensions.Logging;
 

@@ -1,13 +1,12 @@
-using System.Net;
-using System.Net.NetworkInformation;
+using DeviceHub.Cards.TransitCard.Extensions;
 using DeviceHub.Devices.Contracts;
 using DeviceHub.Devices.PcscReader.Extensions;
-using DeviceHub.Cards.TransitCard.Extensions;
 using DeviceHub.DriverLoader;
 using DeviceHub.Service.Api.Endpoints;
 using DeviceHub.Service.Api.Extensions;
 using DeviceHub.Service.Api.Models;
 using DeviceHub.Service.Api.WebSocket;
+using System.Net.NetworkInformation;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {

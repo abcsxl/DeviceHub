@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using DeviceHub.Cards.TransitCard.Constants;
 using DeviceHub.Devices.Contracts;
 using Microsoft.Extensions.Logging;
 
@@ -57,7 +58,7 @@ public class MockTransitCardService : ITransitCardService
     {
         var sessionId = Guid.NewGuid().ToString("N");
         var amountHex = ((int)(amount * 100)).ToString("X8");
-        var unsignedApdu = $"8054000008{amountHex}0000000000000000";
+        var unsignedApdu = $"{ApduCommands.CreditForLoad}{amountHex}0000000000000000";
         var signData = $"{sessionId}{amountHex}";
 
         _sessions[sessionId] = new MockSession { Amount = amount, Timestamp = DateTime.UtcNow };
@@ -74,7 +75,7 @@ public class MockTransitCardService : ITransitCardService
             return Task.FromResult(new RechargeResult(false, null, null, "Invalid MAC signature"));
 
         _logger.LogInformation("Mock recharge completed: amount={Amount}", session.Amount);
-        return Task.FromResult(new RechargeResult(true, "90", "00"));
+        return Task.FromResult(new RechargeResult(true, SwConstants.SuccessPrefix, "00"));
     }
 
     private sealed class MockSession
