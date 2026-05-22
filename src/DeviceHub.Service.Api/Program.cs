@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using DeviceHub.Devices.Contracts;
 using DeviceHub.Devices.PcscReader.Extensions;
-using DeviceHub.Devices.TransitCard.Extensions;
+using DeviceHub.Cards.TransitCard.Extensions;
 using DeviceHub.DriverLoader;
 using DeviceHub.Service.Api.Endpoints;
 using DeviceHub.Service.Api.Extensions;

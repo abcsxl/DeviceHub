@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using DeviceHub.Devices.Contracts;
 using Microsoft.Extensions.Logging;
 
-namespace DeviceHub.Devices.TransitCard.Services;
+namespace DeviceHub.Cards.TransitCard.Services;
 
 public class MockTransitCardService : ITransitCardService
 {
