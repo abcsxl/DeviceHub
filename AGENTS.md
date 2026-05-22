@@ -1,7 +1,8 @@
 # DeviceHub — AGENTS.md
 
 ## 项目信息
-- 五个项目：`DeviceHub.Devices.Contracts`（抽象/接口 + NuGet 发布）→ `DeviceHub.Devices.PcscReader`（PCSC 实现）、`DeviceHub.Devices.TransitCard`（互联互通卡 JT/T 978 协议封装）→ `DeviceHub.DriverLoader`（外部 DLL 插件加载）→ `DeviceHub.Service.Api`（主程序）
+- 五个项目：`DeviceHub.Devices.Contracts`（抽象/接口 + NuGet 发布）→ `DeviceHub.Devices.PcscReader`（PCSC 实现）、`DeviceHub.Cards.TransitCard`（互联互通卡 JT/T 978 协议封装）→ `DeviceHub.DriverLoader`（外部 DLL 插件加载）→ `DeviceHub.Service.Api`（主程序）
+- 命名体系：`DeviceHub.Devices.*` 硬件抽象，`DeviceHub.Cards.*` 卡协议封装
 - 目标框架 **net10.0**，Minimal APIs 项目
 - 三层架构：Minimal APIs → Service → Hardware，**不做 DDD / CQRS / MediatR**
 - 每种硬件独立接口（如 `IPcscService`），继承轻量基接口 `IHardwareService`（仅生命周期）

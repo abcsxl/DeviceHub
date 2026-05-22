@@ -12,7 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DeviceHub.Devices.Contracts\DeviceHub.Devices.Contracts.csproj" />
     <ProjectReference Include="..\DeviceHub.Devices.PcscReader\DeviceHub.Devices.PcscReader.csproj" />
-    <ProjectReference Include="..\DeviceHub.Devices.TransitCard\DeviceHub.Devices.TransitCard.csproj" />
+    <ProjectReference Include="..\DeviceHub.Cards.TransitCard\DeviceHub.Cards.TransitCard.csproj" />
     <ProjectReference Include="..\DeviceHub.DriverLoader\DeviceHub.DriverLoader.csproj" />
   </ItemGroup>
 

@@ -1,9 +1,9 @@
 using DeviceHub.Devices.Contracts;
-using DeviceHub.Devices.TransitCard.Services;
+using DeviceHub.Cards.TransitCard.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace DeviceHub.Devices.TransitCard.Extensions;
+namespace DeviceHub.Cards.TransitCard.Extensions;
 
 public static class ServiceExtensions
 {
