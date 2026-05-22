@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using DeviceHub.Service.Api.Models;
 using Microsoft.Extensions.Localization;
 
@@ -28,9 +29,17 @@ public static class DriversEndpoints
                 return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name] });
 
             entry.Enabled = true;
-            await entry.Service.InitAsync();
+            try
+            {
+                await entry.Service.InitAsync();
+            }
+            catch
+            {
+                entry.Enabled = false;
+                throw;
+            }
             await PersistDriverEnabled(env, config, name, true);
-            logger.LogInformation("驱动 {Name} 已启用", name);
+            logger.LogInformation("Driver {Name} enabled", name);
             return Results.Ok(new { name, status = entry.Service.Status.ToString(), enabled = true });
         });
 
@@ -48,9 +57,17 @@ public static class DriversEndpoints
                 return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name] });
 
             entry.Enabled = false;
-            await entry.Service.ShutdownAsync();
+            try
+            {
+                await entry.Service.ShutdownAsync();
+            }
+            catch
+            {
+                entry.Enabled = true;
+                throw;
+            }
             await PersistDriverEnabled(env, config, name, false);
-            logger.LogInformation("驱动 {Name} 已禁用", name);
+            logger.LogInformation("Driver {Name} disabled", name);
             return Results.Ok(new { name, status = entry.Service.Status.ToString(), enabled = false });
         });
         return app;
@@ -60,35 +77,27 @@ public static class DriversEndpoints
     {
         var configPath = Path.Combine(env.ContentRootPath, "appsettings.json");
         var json = await File.ReadAllTextAsync(configPath, Encoding.UTF8);
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
+        var root = JsonNode.Parse(json)?.AsObject() ?? new JsonObject();
 
-        var options = new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-        var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(json, options)
-            ?? new Dictionary<string, object>();
-
-        if (dict.TryGetValue("drivers", out var driversObj) && driversObj is JsonElement driversEl)
+        if (root["Drivers"] is JsonObject driversObj)
         {
-            var driversDict = JsonSerializer.Deserialize<Dictionary<string, DriverConfig>>(driversEl.GetRawText(), options)
-                ?? new Dictionary<string, DriverConfig>();
-
-            if (driversDict.TryGetValue(driverName, out var driverConfig))
+            if (driversObj[driverName] is JsonObject driverEl)
             {
-                driverConfig.Enabled = enabled;
-                driversDict[driverName] = driverConfig;
-                dict["drivers"] = driversDict;
+                driverEl["Enabled"] = enabled;
             }
         }
 
-        var newJson = JsonSerializer.Serialize(dict, options);
-        await File.WriteAllTextAsync(configPath, newJson, Encoding.UTF8);
+        var newJson = root.ToJsonString(new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        var tempPath = configPath + ".tmp";
+        await File.WriteAllTextAsync(tempPath, newJson, Encoding.UTF8);
+        File.Move(tempPath, configPath, overwrite: true);
 
         if (config is IConfigurationRoot root2)
             root2.Reload();
-    }
-
-    private class DriverConfig
-    {
-        public bool Enabled { get; set; }
     }
 }

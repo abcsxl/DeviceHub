@@ -63,6 +63,9 @@
   <data name="ConfigValidationFailed" xml:space="preserve">
     <value>Configuration validation failed</value>
   </data>
+  <data name="NoDefaultConfig" xml:space="preserve">
+    <value>No default configuration available</value>
+  </data>
 
   <!-- Drivers Endpoints -->
   <data name="DriverNotFound" xml:space="preserve">
@@ -115,5 +118,8 @@
   </data>
   <data name="ReaderNameRequired" xml:space="preserve">
     <value>readerName is required</value>
+  </data>
+  <data name="TransmitFailed" xml:space="preserve">
+    <value>Transmit failed</value>
   </data>
 </root>

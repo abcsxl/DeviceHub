@@ -2,7 +2,7 @@ using System.Text;
 using DeviceHub.Devices.Contracts;
 using Microsoft.Extensions.Logging;
 
-namespace DeviceHub.Devices.PcscReader;
+namespace DeviceHub.Devices.PcscReader.Services;
 
 public class PcscService : IPcscService, IDisposable
 {
@@ -15,6 +15,7 @@ public class PcscService : IPcscService, IDisposable
     private readonly Dictionary<string, bool> _lastReaderStates = [];
     private CancellationTokenSource? _monitorCts;
     private Thread? _monitorThread;
+    private int _monitorConsecutiveFailures;
 
     public string Name => "Pcsc";
     public HardwareStatus Status => _status;
@@ -28,7 +29,7 @@ public class PcscService : IPcscService, IDisposable
 
     public Task InitAsync(CancellationToken ct = default)
     {
-        lock (this)
+        lock (_syncLock)
         {
             if (_status == HardwareStatus.Running)
                 return Task.CompletedTask;
@@ -37,12 +38,12 @@ public class PcscService : IPcscService, IDisposable
             if (rc != Success)
             {
                 _status = HardwareStatus.Error;
-                _logger.LogError("SCardEstablishContext 失败: 0x{Code:X8}", rc);
-                throw new InvalidOperationException($"PCSC 上下文初始化失败: 0x{rc:X8}");
+                _logger.LogError("SCardEstablishContext failed: 0x{Code:X8}", rc);
+                throw new InvalidOperationException($"PCSC context initialization failed: 0x{rc:X8}");
             }
 
             _status = HardwareStatus.Running;
-            _logger.LogInformation("PCSC 服务已启动");
+            _logger.LogInformation("PCSC service started");
 
             _monitorCts = new CancellationTokenSource();
             _monitorThread = new Thread(() => MonitorReaders(_monitorCts.Token))
@@ -58,7 +59,7 @@ public class PcscService : IPcscService, IDisposable
 
     public Task ShutdownAsync(CancellationToken ct = default)
     {
-        lock (this)
+        lock (_syncLock)
         {
             _monitorCts?.Cancel();
             _monitorThread?.Join(5000);
@@ -73,7 +74,7 @@ public class PcscService : IPcscService, IDisposable
             }
 
             _status = HardwareStatus.Stopped;
-            _logger.LogInformation("PCSC 服务已关闭");
+            _logger.LogInformation("PCSC service stopped");
         }
 
         return Task.CompletedTask;
@@ -138,7 +139,7 @@ public class PcscService : IPcscService, IDisposable
         lock (_syncLock)
         {
             if (_context == nint.Zero)
-                return Task.FromResult(new TransmitResult(false, ErrorMessage: "PCSC 服务未启动"));
+                return Task.FromResult(new TransmitResult(false, ErrorMessage: "PCSC service not running", ErrorCode: "HARDWARE_ERROR"));
             return TransmitInternal(readerName, apdu);
         }
     }
@@ -151,13 +152,14 @@ public class PcscService : IPcscService, IDisposable
 
         if (rc != Success)
             return Task.FromResult(new TransmitResult(false,
-                ErrorMessage: $"连接读卡器失败: 0x{rc:X8}"));
+                ErrorMessage: $"Failed to connect to reader: 0x{rc:X8}",
+                ErrorCode: "READER_ERROR"));
 
         try
         {
             var apduBytes = HexToBytes(apdu);
             if (apduBytes == null)
-                return Task.FromResult(new TransmitResult(false, ErrorMessage: "APDU 格式错误"));
+                return Task.FromResult(new TransmitResult(false, ErrorMessage: "Invalid APDU format", ErrorCode: "INVALID_PARAMETERS"));
 
             var sendPci = new SCardIORequest { Protocol = protocol, Length = 8 };
             var recvPci = new SCardIORequest { Protocol = protocol, Length = 8 };
@@ -170,7 +172,8 @@ public class PcscService : IPcscService, IDisposable
             if (rc != Success)
             {
                 return Task.FromResult(new TransmitResult(false,
-                    ErrorMessage: $"发送失败: 0x{rc:X8}"));
+                    ErrorMessage: $"Transmit failed: 0x{rc:X8}",
+                    ErrorCode: "HARDWARE_ERROR"));
             }
 
             Array.Resize(ref recvBuf, (int)recvLen);
@@ -192,7 +195,6 @@ public class PcscService : IPcscService, IDisposable
     public void Dispose()
     {
         ShutdownAsync().GetAwaiter().GetResult();
-        GC.SuppressFinalize(this);
     }
 
     private List<string> GetReaderNames()
@@ -203,6 +205,10 @@ public class PcscService : IPcscService, IDisposable
         if (rc != Success || bufLen == 0)
             return [];
 
+        // On Windows, SCardListReadersW returns length in WCHARs (2 bytes each)
+        if (OperatingSystem.IsWindows())
+            bufLen *= 2;
+
         var buf = new byte[bufLen];
         rc = NativeMethods.ListReaders(_context, buf, ref bufLen);
 
@@ -212,17 +218,19 @@ public class PcscService : IPcscService, IDisposable
         var names = new List<string>();
         var offset = 0;
 
+        var encoding = OperatingSystem.IsWindows() ? Encoding.Unicode : Encoding.UTF8;
+
         while (offset < buf.Length)
         {
             var end = Array.IndexOf(buf, (byte)0, offset);
             if (end < 0 || end == offset)
                 break;
 
-            var name = Encoding.ASCII.GetString(buf, offset, end - offset);
+            var name = encoding.GetString(buf, offset, end - offset);
             if (!string.IsNullOrEmpty(name))
                 names.Add(name);
 
-            offset = end + 1;
+            offset = end + (OperatingSystem.IsWindows() ? 2 : 1);
         }
 
         return names;
@@ -262,39 +270,55 @@ public class PcscService : IPcscService, IDisposable
         {
             try
             {
-                var currentReaderNames = GetReaderNames();
+                List<(string Name, bool WasPresent, bool IsPresent)> changes;
 
-                foreach (var name in currentReaderNames)
+                lock (_syncLock)
                 {
-                    if (!_lastReaderStates.ContainsKey(name))
+                    if (_context == nint.Zero)
+                        break;
+
+                    var currentReaderNames = GetReaderNames();
+
+                    foreach (var name in currentReaderNames)
                     {
-                        _lastReaderStates[name] = false;
-                        _logger.LogInformation("新读卡器接入: {Reader}", name);
+                        if (!_lastReaderStates.ContainsKey(name))
+                        {
+                            _lastReaderStates[name] = false;
+                            _logger.LogInformation("New reader detected: {Reader}", name);
+                        }
                     }
+
+                    foreach (var name in _lastReaderStates.Keys.ToList())
+                    {
+                        if (!currentReaderNames.Contains(name))
+                        {
+                            _lastReaderStates.Remove(name);
+                            _logger.LogInformation("Reader removed: {Reader}", name);
+                        }
+                    }
+
+                    changes = new List<(string, bool, bool)>();
+                    foreach (var name in currentReaderNames)
+                    {
+                        var info = GetReaderInfoInternal(name);
+                        var wasPresent = _lastReaderStates.TryGetValue(name, out var prev) && prev;
+
+                        if (info.IsCardPresent != wasPresent)
+                        {
+                            _lastReaderStates[name] = info.IsCardPresent;
+                            changes.Add((name, wasPresent, info.IsCardPresent));
+                        }
+                    }
+
+                    _monitorConsecutiveFailures = 0;
                 }
 
-                foreach (var name in _lastReaderStates.Keys.ToList())
+                foreach (var (name, wasPresent, isPresent) in changes)
                 {
-                    if (!currentReaderNames.Contains(name))
-                    {
-                        _lastReaderStates.Remove(name);
-                        _logger.LogInformation("读卡器移除: {Reader}", name);
-                    }
-                }
-
-                foreach (var name in currentReaderNames)
-                {
-                    var info = GetReaderInfoInternal(name);
-                    var wasPresent = _lastReaderStates.TryGetValue(name, out var prev) && prev;
-
-                    if (info.IsCardPresent != wasPresent)
-                    {
-                        _lastReaderStates[name] = info.IsCardPresent;
-                        CardStatusChanged?.Invoke(this,
-                            new CardStatusEventArgs(name,
-                                wasPresent ? "card_present" : "empty",
-                                info.IsCardPresent ? "card_present" : "empty"));
-                    }
+                    CardStatusChanged?.Invoke(this,
+                        new CardStatusEventArgs(name,
+                            wasPresent ? "card_present" : "empty",
+                            isPresent ? "card_present" : "empty"));
                 }
 
                 Thread.Sleep(1000);
@@ -305,7 +329,15 @@ public class PcscService : IPcscService, IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "读卡器监控异常");
+                _monitorConsecutiveFailures++;
+                if (_monitorConsecutiveFailures >= 5)
+                {
+                    lock (_syncLock)
+                        _status = HardwareStatus.Error;
+                    _logger.LogError(ex, "Reader monitor failed {Count} consecutive times, entering error state", _monitorConsecutiveFailures);
+                    break;
+                }
+                _logger.LogWarning(ex, "Reader monitor exception ({Count} consecutive failures)", _monitorConsecutiveFailures);
                 Thread.Sleep(5000);
             }
         }

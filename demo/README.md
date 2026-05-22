@@ -42,6 +42,17 @@ npm run dev
 - **PCSC 面板**：先点「列出读卡器」获取名称，再填入读卡器名称执行后续操作
 - **WS 面板**：连接后发送 `target` + `action` 消息，下方实时显示收到的推送
 
+## Mock 模式
+
+将 `appsettings.json` 中 `Drivers.Pcsc.Mock` 设为 `true` 即可启用模拟模式，无需物理读卡器。
+
+| 模拟读卡器 | 说明 |
+|------------|------|
+| `Mock Reader CL` | 初始有卡，每 10 秒自动切换插拔状态 |
+| `Mock Reader SAM` | 始终无卡 |
+
+Mock 模式下所有 REST 和 WebSocket 端点行为一致，Transmit 返回固定模拟响应。适用于前端联调、功能演示和自动化测试。
+
 ## 构建
 
 ```bash

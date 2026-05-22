@@ -8,12 +8,28 @@ public class InMemoryLogProvider : ILoggerProvider
     private readonly ConcurrentQueue<LogEntry> _entries = new();
     private readonly int _capacity;
     private readonly Dictionary<string, LogLevel> _minLevels;
+    private IDisposable? _reloadToken;
 
     public InMemoryLogProvider(IConfiguration configuration)
     {
-        _capacity = configuration.GetValue<int>("Logging:RingBufferSize", 1000);
+        _capacity = Math.Max(10, configuration.GetValue<int>("Logging:RingBufferSize", 1000));
         _minLevels = new Dictionary<string, LogLevel>(StringComparer.OrdinalIgnoreCase);
-        var levelSection = configuration.GetSection("Logging:LogLevel");
+        ReloadLevels(configuration);
+
+        if (configuration is IConfigurationRoot root)
+            _reloadToken = root.GetReloadToken().RegisterChangeCallback(_ => OnConfigReload(root), null);
+    }
+
+    private void OnConfigReload(IConfigurationRoot root)
+    {
+        ReloadLevels(root);
+        _reloadToken = root.GetReloadToken().RegisterChangeCallback(_ => OnConfigReload(root), null);
+    }
+
+    private void ReloadLevels(IConfiguration config)
+    {
+        _minLevels.Clear();
+        var levelSection = config.GetSection("Logging:LogLevel");
         foreach (var kv in levelSection.GetChildren())
         {
             if (Enum.TryParse<LogLevel>(kv.Value, true, out var level))
@@ -39,6 +55,7 @@ public class InMemoryLogProvider : ILoggerProvider
 
     public void Dispose()
     {
+        _reloadToken?.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -48,7 +65,6 @@ public class InMemoryLogProvider : ILoggerProvider
         private readonly ConcurrentQueue<LogEntry> _entries;
         private readonly int _capacity;
         private readonly Dictionary<string, LogLevel> _minLevels;
-        private readonly LogLevel _effectiveMinLevel;
 
         public InMemoryLogger(
             string categoryName,
@@ -60,7 +76,6 @@ public class InMemoryLogProvider : ILoggerProvider
             _entries = entries;
             _capacity = capacity;
             _minLevels = minLevels;
-            _effectiveMinLevel = ResolveMinLevel(categoryName);
         }
 
         private LogLevel ResolveMinLevel(string category)
@@ -74,7 +89,7 @@ public class InMemoryLogProvider : ILoggerProvider
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-        public bool IsEnabled(LogLevel logLevel) => logLevel >= _effectiveMinLevel;
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= ResolveMinLevel(_categoryName);
 
         public void Log<TState>(
             LogLevel logLevel,

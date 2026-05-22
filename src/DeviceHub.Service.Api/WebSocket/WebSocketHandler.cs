@@ -22,9 +22,11 @@ public sealed class WebSocketHandler : IDisposable
     }
 
     internal IEnumerable<KeyValuePair<Guid, System.Net.WebSockets.WebSocket>> ActiveConnections
-        => _connections
-            .Where(kvp => kvp.Value.Socket.State == WebSocketState.Open)
-            .Select(kvp => new KeyValuePair<Guid, System.Net.WebSockets.WebSocket>(kvp.Key, kvp.Value.Socket));
+        => !_disposed
+            ? _connections
+                .Where(kvp => kvp.Value.Socket.State == WebSocketState.Open)
+                .Select(kvp => new KeyValuePair<Guid, System.Net.WebSockets.WebSocket>(kvp.Key, kvp.Value.Socket))
+            : [];
 
     internal IReadOnlySet<string>? GetSubscribedEvents(Guid id)
     {
@@ -36,7 +38,7 @@ public sealed class WebSocketHandler : IDisposable
         _connections.TryRemove(id, out _);
     }
 
-    internal bool TryUpdatePingTime(Guid id)
+    internal bool IsConnectionHealthy(Guid id)
     {
         if (_connections.TryGetValue(id, out var entry) && entry.Socket.State == WebSocketState.Open)
         {
@@ -99,7 +101,10 @@ public sealed class WebSocketHandler : IDisposable
             var bytes = Encoding.UTF8.GetBytes(payload);
             var segment = new ArraySegment<byte>(bytes);
 
-            foreach (var (id, entry) in _connections)
+            var snapshot = _connections.ToArray();
+            var failedIds = new List<Guid>();
+
+            foreach (var (id, entry) in snapshot)
             {
                 if (entry.Socket.State != WebSocketState.Open)
                     continue;
@@ -114,9 +119,12 @@ public sealed class WebSocketHandler : IDisposable
                 }
                 catch
                 {
-                    _connections.TryRemove(id, out _);
+                    failedIds.Add(id);
                 }
             }
+
+            foreach (var id in failedIds)
+                _connections.TryRemove(id, out _);
         }
         finally
         {
@@ -127,21 +135,49 @@ public sealed class WebSocketHandler : IDisposable
     private async Task HandleConnectionAsync(Guid connectionId, System.Net.WebSockets.WebSocket ws, IServiceProvider services)
     {
         var buffer = new byte[1024 * 16];
+        var messageBuffer = new List<byte>();
 
-        while (ws.State == WebSocketState.Open)
+        using var connectionCts = new CancellationTokenSource();
+        connectionCts.CancelAfter(TimeSpan.FromMinutes(5));
+
+        while (ws.State == WebSocketState.Open && !connectionCts.IsCancellationRequested)
         {
-            var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            WebSocketReceiveResult result;
+            try
+            {
+                result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), connectionCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
 
             if (result.MessageType == WebSocketMessageType.Close)
             {
-                await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                await CloseAsync(ws);
                 break;
             }
 
             if (result.MessageType == WebSocketMessageType.Text)
             {
-                var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                await HandleTextMessageAsync(connectionId, ws, json, services);
+                if (result.EndOfMessage)
+                {
+                    var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    await HandleTextMessageAsync(connectionId, ws, json, services);
+                }
+                else
+                {
+                    messageBuffer.Clear();
+                    messageBuffer.AddRange(buffer.AsSpan(0, result.Count));
+                    while (!result.EndOfMessage)
+                    {
+                        result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), connectionCts.Token);
+                        messageBuffer.AddRange(buffer.AsSpan(0, result.Count));
+                    }
+                    var fullJson = Encoding.UTF8.GetString(messageBuffer.ToArray());
+                    await HandleTextMessageAsync(connectionId, ws, fullJson, services);
+                    messageBuffer.Clear();
+                }
             }
         }
     }
@@ -252,7 +288,8 @@ public sealed class WebSocketHandler : IDisposable
                 var result = await pcsc.TransmitAsync(readerName, apdu);
                 if (!result.Success)
                 {
-                    await SendErrorAsync(ws, requestId, "HARDWARE_ERROR", result.ErrorMessage ?? "Transmit failed");
+                    var errorCode = result.ErrorCode ?? "HARDWARE_ERROR";
+                    await SendErrorAsync(ws, requestId, errorCode, result.ErrorMessage ?? _localizer["TransmitFailed"]);
                     return;
                 }
                 data = new { sw1 = result.Sw1, sw2 = result.Sw2, responseData = result.ResponseData, success = result.Success };
@@ -298,6 +335,21 @@ public sealed class WebSocketHandler : IDisposable
         await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
     }
 
+    private static async Task CloseAsync(System.Net.WebSockets.WebSocket ws)
+    {
+        try
+        {
+            if (ws.State == WebSocketState.Open)
+                await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (WebSocketException)
+        {
+        }
+    }
+
     private static IReadOnlySet<string>? ParseSubscribedEvents(string? eventsParam)
     {
         if (string.IsNullOrWhiteSpace(eventsParam))
@@ -314,6 +366,31 @@ public sealed class WebSocketHandler : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+
+        var snapshot = _connections.ToArray();
+        foreach (var (_, entry) in snapshot)
+        {
+            try
+            {
+                if (entry.Socket.State == WebSocketState.Open)
+                {
+                    var ws = entry.Socket;
+                    _ = ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Server shutting down", CancellationToken.None)
+                        .ContinueWith(t =>
+                        {
+                            try { ws.Dispose(); } catch { }
+                        }, TaskContinuationOptions.ExecuteSynchronously);
+                }
+                else
+                {
+                    try { entry.Socket.Dispose(); } catch { }
+                }
+            }
+            catch
+            {
+            }
+        }
+
         _sendSemaphore.Dispose();
     }
 

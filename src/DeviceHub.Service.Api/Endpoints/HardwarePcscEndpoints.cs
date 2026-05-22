@@ -13,7 +13,7 @@ public static class HardwarePcscEndpoints
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Problem(statusCode: 503, title: L["PcscDriverNotRegistered"]);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["PcscDriverNotRegistered"] }, statusCode: 503);
 
             var readers = await service.ListReadersAsync();
             return Results.Ok(new { readers });
@@ -23,19 +23,24 @@ public static class HardwarePcscEndpoints
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Problem(statusCode: 503, title: L["PcscDriverNotRegistered"]);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["PcscDriverNotRegistered"] }, statusCode: 503);
+
+            var readers = await service.ListReadersAsync();
+            if (readers.All(r => r.Name != name))
+                return Results.NotFound(new { error = "READER_NOT_FOUND", message = L["ReaderNotFound", name] });
 
             var info = await service.GetReaderInfoAsync(name);
-            return info.Name == name
-                ? Results.Ok(info)
-                : Results.NotFound(new { error = "CARD_NOT_PRESENT", message = L["ReaderNotFound", name] });
+            if (!info.IsCardPresent)
+                return Results.NotFound(new { error = "CARD_NOT_PRESENT", message = L["CardNotPresent"] });
+
+            return Results.Ok(info);
         });
 
         group.MapGet("/readers/{name}/atr", async (string name, HttpContext context, IStringLocalizer<Program> L) =>
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Problem(statusCode: 503, title: L["PcscDriverNotRegistered"]);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["PcscDriverNotRegistered"] }, statusCode: 503);
 
             var atr = await service.GetAtrAsync(name);
             return atr != null
@@ -47,7 +52,7 @@ public static class HardwarePcscEndpoints
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Problem(statusCode: 503, title: L["PcscDriverNotRegistered"]);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["PcscDriverNotRegistered"] }, statusCode: 503);
 
             if (string.IsNullOrEmpty(request.ReaderName) || string.IsNullOrEmpty(request.Apdu))
                 return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = L["ReaderNameAndApduRequired"] });
@@ -58,9 +63,14 @@ public static class HardwarePcscEndpoints
             var result = await service.TransmitAsync(request.ReaderName, request.Apdu);
             if (!result.Success)
             {
-                var (code, status) = result.ErrorMessage?.Contains("卡片", StringComparison.Ordinal) == true
-                    ? ("CARD_NOT_PRESENT", 404)
-                    : ("HARDWARE_ERROR", 500);
+                var code = result.ErrorCode ?? "HARDWARE_ERROR";
+                var status = code switch
+                {
+                    "CARD_NOT_PRESENT" => 404,
+                    "READER_NOT_FOUND" => 404,
+                    "INVALID_PARAMETERS" => 400,
+                    _ => 500
+                };
                 return Results.Json(new { error = code, message = result.ErrorMessage }, statusCode: status);
             }
 

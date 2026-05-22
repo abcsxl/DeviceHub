@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.NetworkInformation;
 using DeviceHub.Devices.Contracts;
-using DeviceHub.Devices.PcscReader;
+using DeviceHub.Devices.PcscReader.Extensions;
 using DeviceHub.Service.Api.Endpoints;
 using DeviceHub.Service.Api.Extensions;
 using DeviceHub.Service.Api.Models;
@@ -23,7 +23,7 @@ var actualPort = FindAvailablePort(targetPort, 10);
 
 if (actualPort != targetPort)
 {
-    Console.WriteLine($"端口 {targetPort} 已被占用，使用端口 {actualPort}");
+    Console.WriteLine($"Port {targetPort} is in use, using port {actualPort}");
 }
 
 builder.WebHost.ConfigureKestrel(options =>
@@ -39,7 +39,7 @@ static int FindAvailablePort(int startPort, int maxRetries)
         if (!IsPortInUse(port))
             return port;
     }
-    throw new InvalidOperationException($"端口 {startPort}-{startPort + maxRetries - 1} 均被占用，无法启动服务");
+    throw new InvalidOperationException($"Ports {startPort}-{startPort + maxRetries - 1} are all in use, cannot start service");
 }
 
 static bool IsPortInUse(int port)
@@ -93,16 +93,22 @@ var wsHandler = app.Services.GetRequiredService<WebSocketHandler>();
 try
 {
     var pcscService = app.Services.GetRequiredService<IPcscService>();
-    registry.Register("PcscReader", pcscService);
+    await pcscService.InitAsync();
+    registry.Register("Pcsc", pcscService);
     pcscService.CardStatusChanged += (_, args) =>
     {
-        _ = wsHandler.SendEventAsync("pcsc", "card_status_changed", args);
+        _ = wsHandler.SendEventAsync("pcsc", "card_status_changed", args)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    startupLogger.LogError(t.Exception, "Failed to send WebSocket event");
+            }, TaskScheduler.Default);
     };
-    startupLogger.LogInformation("PCSC 驱动程序已注册");
+    startupLogger.LogInformation("PCSC driver registered");
 }
 catch (InvalidOperationException)
 {
-    startupLogger.LogInformation("PCSC 驱动程序未启用，跳过注册");
+    startupLogger.LogInformation("PCSC driver not enabled, skipping registration");
 }
 
 app.MapStatusEndpoints()
@@ -114,5 +120,9 @@ app.MapStatusEndpoints()
    .MapHardwarePcscEndpoints();
 
 wsHandler.MapRoutes(app);
+
+var env = app.Services.GetRequiredService<IWebHostEnvironment>();
+var configPath = Path.Combine(env.ContentRootPath, "appsettings.json");
+await ConfigEndpoints.InitializeDefaults(configPath);
 
 app.Run();

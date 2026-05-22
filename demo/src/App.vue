@@ -108,7 +108,14 @@ async function restartService() {
 // 6. Health
 // ==============================
 async function getHealth() {
-  await call('health', () => getJson('/health'))
+  await call('health', () => getJson('/api/health'))
+}
+
+// ==============================
+// Config Reset
+// ==============================
+async function resetConfig() {
+  await call('configReset', () => postJson('/api/config/reset'))
 }
 
 // ==============================
@@ -218,14 +225,20 @@ function wsSend() {
           <div class="btn-group">
             <button class="primary" @click="getConfig">GET /api/config</button>
             <button class="primary" @click="putConfig">PUT /api/config</button>
+            <button class="danger-btn" @click="resetConfig">POST /api/config/reset</button>
           </div>
         </div>
-        <p class="desc">获取或更新运行时配置。修改 Hardware.&lt;Name&gt;.Enabled 可启用/禁用驱动</p>
-        <div v-if="results.configGet || errors.configGet" class="dual-panel">
+        <p class="desc">获取或更新运行时配置。修改 Drivers.&lt;Name&gt;.Enabled 可启用/禁用驱动。红色按钮恢复出厂默认值</p>
+        <div v-if="results.configGet || errors.configGet || results.configReset || errors.configReset" class="dual-panel">
           <div class="panel">
             <h3>GET 响应</h3>
             <pre v-if="results.configGet" class="result">{{ results.configGet }}</pre>
             <pre v-else class="error-result">{{ errors.configGet }}</pre>
+            <div v-if="results.configReset || errors.configReset" style="margin-top:8px">
+              <h3>Reset 结果</h3>
+              <pre v-if="results.configReset" class="result">{{ results.configReset }}</pre>
+              <pre v-else class="error-result">{{ errors.configReset }}</pre>
+            </div>
           </div>
           <div class="panel">
             <h3>PUT 请求体（编辑后提交）</h3>
@@ -311,7 +324,7 @@ function wsSend() {
       <section v-if="activeTab === 'health'">
         <div class="section-header">
           <h2>健康检查</h2>
-          <code>GET /health</code>
+          <code>GET /api/health</code>
           <button class="primary" @click="getHealth">请求</button>
         </div>
         <pre v-if="results.health" class="result">{{ results.health }}</pre>
