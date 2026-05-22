@@ -33,23 +33,41 @@ dotnet run --project src/DeviceHub.Service.Api --urls http://localhost:5000
 
 | 文件 | 内容 |
 |------|------|
-| `doc/01-architecture-v1.0.2.md` | 三层架构设计、硬件抽象、多语言支持 |
-| `doc/02-api-specification-v1.0.2.md` | REST + WebSocket 接口规范、多语言切换方式 |
-| `doc/03-packaging-v1.0.1.md` | Windows / Linux 部署打包 |
+| `doc/01-architecture-v1.0.3.md` | 三层架构设计、硬件抽象、Mock 模式、多语言支持 |
+| `doc/02-api-specification-v1.0.3.md` | REST + WebSocket 接口规范、Mock 行为说明 |
+| `doc/03-packaging-v1.1.0.md` | Windows / Linux 部署打包 |
 | `doc/04-cross-platform-v1.0.0.md` | 跨平台注意事项 |
-| `doc/05-testing-v1.0.1.md` | 测试指南 |
+| `doc/05-testing-v1.1.0.md` | 测试指南 |
 
 ## 快速体验
 
-```bash
-# 启动后端
-dotnet run --project src/DeviceHub.Service.Api --urls http://localhost:5000
+**推荐 Mock 模式**（无需物理读卡器即可体验全部功能）：
 
+```bash
+# Windows (PowerShell)
+$env:Drivers__Pcsc__Mock="true"
+dotnet run --project src\DeviceHub.Service.Api
+
+# Linux / macOS
+export Drivers__Pcsc__Mock=true
+dotnet run --project src/DeviceHub.Service.Api --urls http://localhost:5000
+```
+
+```bash
 # 启动 Demo 页面（另开终端）
 cd demo
 npm install
 npm run dev
-# → 浏览器打开 http://localhost:3000
+# → 浏览器打开 http://localhost:3000（或提示的地址）
+```
+
+Mock 模式下提供：2 个虚拟读卡器、固定 ATR、模拟 APDU 响应、每 10 秒自动卡片插拔事件。适用于前端联调、功能演示和自动化测试。
+
+**真实硬件模式**：不设置或设置为 `false` 即可：
+
+```bash
+$env:Drivers__Pcsc__Mock="false"
+dotnet run --project src\DeviceHub.Service.Api
 ```
 
 ## 发布
@@ -61,7 +79,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-Windows 安装包和 Linux tar.gz 自动生成并上传到 Release 页面。详见 `doc/03-packaging-v1.0.0.md`。
+Windows 安装包和 Linux tar.gz 自动生成并上传到 Release 页面。详见 `doc/03-packaging-v1.1.0.md`。
 
 ## 协议
 

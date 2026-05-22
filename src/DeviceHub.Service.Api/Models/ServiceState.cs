@@ -14,7 +14,7 @@ public class ServiceState
 
     public string Platform => _platform;
 
-    public string Architecture => RuntimeInformation.OSArchitecture.ToString().ToLower();
+    public string Architecture => RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant();
 
     public ServiceState()
     {

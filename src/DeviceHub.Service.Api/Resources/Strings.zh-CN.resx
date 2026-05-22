@@ -61,7 +61,10 @@
 
   <!-- Config Endpoints -->
   <data name="ConfigValidationFailed" xml:space="preserve">
-    <value>配置校验失败</value>
+    <value>配置验证失败</value>
+  </data>
+  <data name="NoDefaultConfig" xml:space="preserve">
+    <value>无默认配置可用</value>
   </data>
 
   <!-- Drivers Endpoints -->
@@ -115,5 +118,8 @@
   </data>
   <data name="ReaderNameRequired" xml:space="preserve">
     <value>readerName 为必填项</value>
+  </data>
+  <data name="TransmitFailed" xml:space="preserve">
+    <value>发送失败</value>
   </data>
 </root>

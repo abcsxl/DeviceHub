@@ -5,7 +5,8 @@ public record TransmitResult(
     string? Sw1 = null,
     string? Sw2 = null,
     string? ResponseData = null,
-    string? ErrorMessage = null
+    string? ErrorMessage = null,
+    string? ErrorCode = null
 );
 
 public record CardStatusEventArgs(

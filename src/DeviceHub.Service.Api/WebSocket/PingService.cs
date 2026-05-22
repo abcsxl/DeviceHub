@@ -19,7 +19,7 @@ public sealed class PingService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("WebSocket 心跳服务已启动 (间隔 {Interval}s, 超时 {Timeout}s)",
+        _logger.LogInformation("WebSocket heartbeat service started (interval {Interval}s, timeout {Timeout}s)",
             PingInterval.TotalSeconds, PongTimeout.TotalSeconds);
 
         while (!stoppingToken.IsCancellationRequested)
@@ -34,9 +34,9 @@ public sealed class PingService : BackgroundService
                     continue;
                 }
 
-                if (!_wsHandler.TryUpdatePingTime(id))
+                if (!_wsHandler.IsConnectionHealthy(id))
                 {
-                    _logger.LogWarning("连接 {Id} 心跳超时，关闭", id);
+                    _logger.LogWarning("Connection {Id} heartbeat timeout, closing", id);
                     _wsHandler.RemoveConnection(id);
                     try
                     {

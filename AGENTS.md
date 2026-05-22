@@ -33,15 +33,20 @@
 - `ConfigEndpoints.BindConfig` 动态从 `Drivers` 配置段读取所有驱动 key，不硬编码
 - `PcscService` 使用 `_syncLock` 保护 `_context` 字段，所有硬件操作在锁内执行
 - `PcscService.Dispose()` 调用 `ShutdownAsync().GetAwaiter().GetResult()` 统一清理路径
+- `WebSocketHandler` 为注入单例（非静态类），通过 DI 注册，`PingService` 构造函数注入
 - `WebSocketHandler.SendEventAsync` 使用 `SemaphoreSlim(5,5)` 控制背压
+- `WebSocketHandler` 支持 `?events=` 参数订阅过滤，未订阅的事件不推送
+- `DriverRegistry` enable/disable 操作持久化到 `appsettings.json`，重启不丢失
+- `PcscService` 支持 Mock 模式（`Drivers:Pcsc:Mock=true`），`MockPcscService` 模拟 2 个读卡器、卡片插拔事件、固定 ATR 和 Transmit 响应
 - 安装程序 `InitializeSetup` 先 `net stop` + `sc delete` 旧服务，确保新服务读取新配置
+- 安装包多语言：Windows Inno Setup 双语（English/中文简体），Linux install.sh 启动时选择语言
 
 ## 源码位置
-- 架构设计：`doc/01-architecture-v1.0.1.md`（最新版）
-- API 规范：`doc/02-api-specification-v1.0.1.md`（最新版）
-- 部署打包：`doc/03-packaging-v1.0.1.md`（最新版）
+- 架构设计：`doc/01-architecture-v1.0.3.md`（最新版）
+- API 规范：`doc/02-api-specification-v1.0.3.md`（最新版）
+- 部署打包：`doc/03-packaging-v1.1.0.md`（最新版）
 - 跨平台/国产化：`doc/04-cross-platform-v1.0.0.md`
-- 测试指南：`doc/05-testing-v1.0.1.md`（最新版）
+- 测试指南：`doc/05-testing-v1.1.0.md`（最新版）
 - Vue demo：`demo/`（README 见 `demo/README.md`）
 
 ## 代码规范
@@ -75,7 +80,4 @@
 - 每个文档末尾保留版本历史表
 
 ## 已知待完成优化（P1/P2）
-- P1-7: WebSocketHandler 改为注入单例（当前为静态类）
-- P1-8: WS 事件订阅过滤（`?events=` 参数未实现）
-- P1-11: DriverRegistry enable/disable 持久化到 appsettings.json
-- P2: 移除 PcscReader 的 `Microsoft.AspNetCore.App` FrameworkReference
+- 无（P1-7/P1-8/P1-11/P2 均已完成）
