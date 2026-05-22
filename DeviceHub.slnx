@@ -5,5 +5,7 @@
   </Folder>
   <Project Path="src\DeviceHub.Devices.Contracts\DeviceHub.Devices.Contracts.csproj" />
   <Project Path="src\DeviceHub.Devices.PcscReader\DeviceHub.Devices.PcscReader.csproj" />
+  <Project Path="src\DeviceHub.Devices.TransitCard\DeviceHub.Devices.TransitCard.csproj" />
+  <Project Path="src\DeviceHub.DriverLoader\DeviceHub.DriverLoader.csproj" />
   <Project Path="src\DeviceHub.Service.Api\DeviceHub.Service.Api.csproj" />
 </Solution>

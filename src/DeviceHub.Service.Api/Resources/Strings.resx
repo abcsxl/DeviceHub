@@ -67,6 +67,14 @@
     <value>No default configuration available</value>
   </data>
 
+  <!-- Transit Card Endpoints -->
+  <data name="TransitCardNotRegistered" xml:space="preserve">
+    <value>Transit card service is not registered</value>
+  </data>
+  <data name="InvalidRechargeAmount" xml:space="preserve">
+    <value>Recharge amount must be greater than 0</value>
+  </data>
+
   <!-- Drivers Endpoints -->
   <data name="DriverNotFound" xml:space="preserve">
     <value>Driver {0} is not registered</value>

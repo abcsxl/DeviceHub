@@ -4,5 +4,13 @@
     <RootNamespace>DeviceHub.Devices.Contracts</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>DeviceHub.Devices.Contracts</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>abcsxl</Authors>
+    <Description>DeviceHub hardware abstraction interfaces and data models</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/abcsxl/DeviceHub</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/abcsxl/DeviceHub</RepositoryUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 </Project>

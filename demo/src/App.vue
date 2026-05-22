@@ -2,7 +2,7 @@
 import { ref, reactive } from 'vue'
 import { getJson, putJson, postJson, setLanguage } from './api'
 
-type Tab = 'status' | 'config' | 'logs' | 'drivers' | 'service' | 'health' | 'pcsc' | 'ws'
+type Tab = 'status' | 'config' | 'logs' | 'drivers' | 'service' | 'health' | 'pcsc' | 'transitcard' | 'ws'
 
 const activeTab = ref<Tab>('status')
 const tabs: { key: Tab; label: string }[] = [
@@ -13,6 +13,7 @@ const tabs: { key: Tab; label: string }[] = [
   { key: 'service', label: 'SERVICE' },
   { key: 'health', label: 'HEALTH' },
   { key: 'pcsc', label: 'PCSC' },
+  { key: 'transitcard', label: 'TRANSIT' },
   { key: 'ws', label: 'WS' },
 ]
 
@@ -141,8 +142,50 @@ async function getAtr() {
 async function transmit() {
   if (!pcscReaderName.value || !pcscApdu.value) return
   await call('pcscTransmit', () => postJson(
-    `/api/hardware/pcsc/readers/${encodeURIComponent(pcscReaderName.value)}/transmit`,
-    { apdu: pcscApdu.value }))
+    `/api/hardware/pcsc/transmit`,
+    { readerName: pcscReaderName.value, apdu: pcscApdu.value }))
+}
+
+// ==============================
+// 8. Transit Card
+// ==============================
+const transitReaderName = ref('')
+const transitRechargeAmount = ref(5000)
+const transitSessionId = ref('')
+const transitMacSignature = ref('AABBCCDD')
+
+async function getTransitReaders() {
+  await call('transitReaders', () => getJson('/api/hardware/transitcard/readers'))
+}
+
+async function getCardInfo() {
+  const params = transitReaderName.value ? `?readerName=${encodeURIComponent(transitReaderName.value)}` : ''
+  await call('transitInfo', () => getJson(`/api/hardware/transitcard/info${params}`))
+}
+
+async function getBalance() {
+  const params = transitReaderName.value ? `?readerName=${encodeURIComponent(transitReaderName.value)}` : ''
+  await call('transitBalance', () => getJson(`/api/hardware/transitcard/balance${params}`))
+}
+
+async function getTransactions() {
+  const params = new URLSearchParams({ count: '5' })
+  if (transitReaderName.value) params.set('readerName', transitReaderName.value)
+  await call('transitTx', () => getJson(`/api/hardware/transitcard/transactions?${params}`))
+}
+
+async function rechargeInit() {
+  const body: Record<string, unknown> = { amount: transitRechargeAmount.value }
+  if (transitReaderName.value) body.readerName = transitReaderName.value
+  await call('rechargeInit', () => postJson('/api/hardware/transitcard/recharge/init', body))
+}
+
+async function rechargeExecute() {
+  if (!transitSessionId.value) return
+  await call('rechargeExec', () => postJson('/api/hardware/transitcard/recharge/execute', {
+    sessionId: transitSessionId.value,
+    macSignature: transitMacSignature.value
+  }))
 }
 
 // ==============================
@@ -367,8 +410,59 @@ function wsSend() {
         <button class="primary" @click="transmit">POST /readers/{name}/transmit</button>
         <div v-if="results.pcscTransmit || errors.pcscTransmit">
           <h3>Transmit 响应</h3>
-          <pre v-if="results.pcscTransmit" class="result">{{ results.pcscTransmit }}</pre>
-          <pre v-else class="error-result">{{ errors.pcscTransmit }}</pre>
+        <pre v-if="results.pcscTransmit" class="result">{{ results.pcscTransmit }}</pre>
+        <pre v-else class="error-result">{{ errors.pcscTransmit }}</pre>
+        </div>
+      </section>
+
+      <!-- ========== TRANSIT CARD ========== -->
+      <section v-if="activeTab === 'transitcard'">
+        <div class="section-header">
+          <h2>交通卡</h2>
+          <code>/api/hardware/transitcard/*</code>
+        </div>
+
+        <div class="btn-group" style="margin-bottom:8px">
+          <button class="primary" @click="getTransitReaders">GET readers</button>
+          <button class="primary" @click="getCardInfo">GET info</button>
+          <button class="primary" @click="getBalance">GET balance</button>
+          <button class="primary" @click="getTransactions">GET transactions</button>
+        </div>
+
+        <div class="filter-row">
+          <label>readerName <input v-model="transitReaderName" placeholder="留空自动选择" style="width:250px" /></label>
+        </div>
+
+        <div v-if="results.transitReaders || results.transitInfo || results.transitBalance || results.transitTx" class="dual-panel">
+          <div class="panel">
+            <pre v-if="results.transitReaders" class="result">READERS: {{ results.transitReaders }}</pre>
+            <pre v-if="results.transitInfo" class="result">INFO: {{ results.transitInfo }}</pre>
+            <pre v-if="results.transitBalance" class="result">BALANCE: {{ results.transitBalance }}</pre>
+            <pre v-if="results.transitTx" class="result">TRANSACTIONS: {{ results.transitTx }}</pre>
+          </div>
+        </div>
+        <pre v-if="errors.transitReaders || errors.transitInfo || errors.transitBalance || errors.transitTx" class="error-result">
+          {{ errors.transitReaders || errors.transitInfo || errors.transitBalance || errors.transitTx }}</pre>
+
+        <hr />
+        <h3 style="margin-bottom:6px">充值</h3>
+        <div class="filter-row">
+          <label>金额(分) <input v-model.number="transitRechargeAmount" type="number" min="1" /></label>
+        </div>
+        <button class="primary" @click="rechargeInit">POST recharge/init</button>
+        <pre v-if="results.rechargeInit" class="result">{{ results.rechargeInit }}</pre>
+        <pre v-else-if="errors.rechargeInit" class="error-result">{{ errors.rechargeInit }}</pre>
+
+        <div v-if="results.rechargeInit" style="margin-top:8px;border:1px solid #ddd;padding:8px;border-radius:4px">
+          <div class="filter-row">
+            <label>sessionId <input v-model="transitSessionId" style="width:350px;font-family:monospace" /></label>
+          </div>
+          <div class="filter-row">
+            <label>macSignature <input v-model="transitMacSignature" style="width:350px;font-family:monospace" /></label>
+          </div>
+          <button class="primary" @click="rechargeExecute">POST recharge/execute</button>
+          <pre v-if="results.rechargeExec" class="result">{{ results.rechargeExec }}</pre>
+          <pre v-else-if="errors.rechargeExec" class="error-result">{{ errors.rechargeExec }}</pre>
         </div>
       </section>
 
