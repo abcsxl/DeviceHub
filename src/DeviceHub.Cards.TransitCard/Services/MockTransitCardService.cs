@@ -1,11 +1,12 @@
 using System.Collections.Concurrent;
 using DeviceHub.Cards.TransitCard.Constants;
 using DeviceHub.Devices.Contracts;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 
 namespace DeviceHub.Cards.TransitCard.Services;
 
-public class MockTransitCardService : ITransitCardService
+public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegistrar
 {
     private readonly IPcscService _pcsc;
     private readonly ILogger<MockTransitCardService> _logger;
@@ -77,6 +78,8 @@ public class MockTransitCardService : ITransitCardService
         _logger.LogInformation("Mock recharge completed: amount={Amount}", session.Amount);
         return Task.FromResult(new RechargeResult(true, SwConstants.SuccessPrefix, "00"));
     }
+
+    public void MapEndpoints(IEndpointRouteBuilder app) => TransitCardEndpointHelper.MapEndpoints(app);
 
     private sealed class MockSession
     {

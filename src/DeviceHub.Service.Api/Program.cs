@@ -120,8 +120,13 @@ app.MapStatusEndpoints()
    .MapDriversEndpoints()
    .MapServiceEndpoints()
    .MapHealthEndpoints()
-   .MapHardwarePcscEndpoints()
-   .MapHardwareTransitCardEndpoints();
+   .MapHardwarePcscEndpoints();
+
+foreach (var registrar in app.Services.GetServices<IHardwareEndpointRegistrar>())
+{
+    startupLogger.LogInformation("Mapping endpoints for {Registrar}", registrar.GetType().Name);
+    registrar.MapEndpoints(app);
+}
 
 wsHandler.MapRoutes(app);
 

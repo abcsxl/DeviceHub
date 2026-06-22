@@ -6,13 +6,6 @@ using Microsoft.Extensions.Logging;
 
 namespace DeviceHub.DriverLoader;
 
-[AttributeUsage(AttributeTargets.Class)]
-public class DriverNameAttribute : Attribute
-{
-    public string Name { get; }
-    public DriverNameAttribute(string name) => Name = name;
-}
-
 public static class DriverLoaderExtensions
 {
     public static IServiceCollection LoadExternalDrivers(
@@ -40,13 +33,22 @@ public static class DriverLoaderExtensions
                     var driverName = type.GetCustomAttribute<DriverNameAttribute>()?.Name
                         ?? type.Name.Replace("Service", "");
 
-                    if (!configuration.GetValue<bool>($"Drivers:{driverName}:Enabled"))
+                    var enabled = configuration.GetValue<bool?>($"Drivers:{driverName}:Enabled");
+                    if (enabled == false)
                     {
                         logger?.LogInformation("External driver {Name} not enabled, skipping", driverName);
                         continue;
                     }
 
-                    services.AddSingleton(typeof(IHardwareService), type);
+                    services.AddSingleton(type);
+                    services.AddSingleton(typeof(IHardwareService), sp => sp.GetRequiredService(type));
+
+                    if (typeof(IHardwareEndpointRegistrar).IsAssignableFrom(type))
+                    {
+                        services.AddSingleton(typeof(IHardwareEndpointRegistrar), sp => sp.GetRequiredService(type));
+                        logger?.LogInformation("External driver {Name} registered endpoint registrar", driverName);
+                    }
+
                     logger?.LogInformation("External driver {Name} loaded from {Dll}", driverName, Path.GetFileName(dllPath));
                 }
             }

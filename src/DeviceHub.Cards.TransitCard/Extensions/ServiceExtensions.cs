@@ -19,6 +19,9 @@ public static class ServiceExtensions
         else
             services.AddSingleton<ITransitCardService, TransitCardService>();
 
+        services.AddSingleton<IHardwareEndpointRegistrar>(sp =>
+            (IHardwareEndpointRegistrar)sp.GetRequiredService<ITransitCardService>());
+
         return services;
     }
 }

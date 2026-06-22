@@ -1,11 +1,12 @@
 using System.Collections.Concurrent;
 using DeviceHub.Cards.TransitCard.Constants;
 using DeviceHub.Devices.Contracts;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 
 namespace DeviceHub.Cards.TransitCard.Services;
 
-public class TransitCardService : ITransitCardService
+public class TransitCardService : ITransitCardService, IHardwareEndpointRegistrar
 {
     private readonly IPcscService _pcsc;
     private readonly ILogger<TransitCardService> _logger;
@@ -151,6 +152,8 @@ public class TransitCardService : ITransitCardService
 
         return records;
     }
+
+    public void MapEndpoints(IEndpointRouteBuilder app) => TransitCardEndpointHelper.MapEndpoints(app);
 
     private sealed class RechargeSession
     {
