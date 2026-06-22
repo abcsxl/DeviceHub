@@ -1,29 +1,32 @@
 using DeviceHub.Devices.Contracts;
-using Microsoft.Extensions.Localization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace DeviceHub.Service.Api.Endpoints;
+namespace DeviceHub.Cards.TransitCard;
 
-public static class HardwareTransitCardEndpoints
+internal static class TransitCardEndpointHelper
 {
-    public static WebApplication MapHardwareTransitCardEndpoints(this WebApplication app)
+    internal static void MapEndpoints(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/hardware/transitcard");
 
-        group.MapGet("/readers", async (HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapGet("/readers", async (HttpContext context) =>
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
 
             var readers = await service.GetAvailableReadersAsync();
             return Results.Ok(new { readers });
         });
 
-        group.MapGet("/info", async (string? readerName, HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapGet("/info", async (string? readerName, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
 
             try
             {
@@ -36,11 +39,11 @@ public static class HardwareTransitCardEndpoints
             }
         });
 
-        group.MapGet("/balance", async (string? readerName, HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapGet("/balance", async (string? readerName, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
 
             try
             {
@@ -53,11 +56,11 @@ public static class HardwareTransitCardEndpoints
             }
         });
 
-        group.MapGet("/transactions", async (int? count, string? readerName, HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapGet("/transactions", async (int? count, string? readerName, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
 
             try
             {
@@ -70,14 +73,14 @@ public static class HardwareTransitCardEndpoints
             }
         });
 
-        group.MapPost("/recharge/init", async (RechargeInitRequest req, HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapPost("/recharge/init", async (RechargeInitRequest req, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
 
             if (req.Amount <= 0)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = L["InvalidRechargeAmount"].Value }, statusCode: 400);
+                return Results.Json(new { error = "INVALID_PARAMETERS", message = "Recharge amount must be greater than 0" }, statusCode: 400);
 
             try
             {
@@ -90,11 +93,11 @@ public static class HardwareTransitCardEndpoints
             }
         });
 
-        group.MapPost("/recharge/execute", async (RechargeExecuteRequest req, HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapPost("/recharge/execute", async (RechargeExecuteRequest req, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["TransitCardNotRegistered"].Value }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
 
             if (string.IsNullOrEmpty(req.SessionId) || string.IsNullOrEmpty(req.MacSignature))
                 return Results.Json(new { error = "INVALID_PARAMETERS", message = "sessionId and macSignature are required" }, statusCode: 400);
@@ -105,10 +108,8 @@ public static class HardwareTransitCardEndpoints
 
             return Results.Ok(new { sw1 = result.Sw1, sw2 = result.Sw2, success = true });
         });
-
-        return app;
     }
 
-    private record RechargeInitRequest(decimal Amount, string? ReaderName);
-    private record RechargeExecuteRequest(string? SessionId, string? MacSignature);
+    internal record RechargeInitRequest(decimal Amount, string? ReaderName);
+    internal record RechargeExecuteRequest(string? SessionId, string? MacSignature);
 }
