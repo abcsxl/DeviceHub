@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using DeviceHub.Cards.TransitCard.Constants;
+using DeviceHub.Cards.TransitCard.Helpers;
 using DeviceHub.Devices.Contracts;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
@@ -59,7 +60,7 @@ public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegi
     {
         var sessionId = Guid.NewGuid().ToString("N");
         var amountHex = ((int)(amount * 100)).ToString("X8");
-        var unsignedApdu = $"{ApduCommands.CreditForLoad}{amountHex}0000000000000000";
+        var unsignedApdu = ApduBuilder.CreditForLoad(amountHex);
         var signData = $"{sessionId}{amountHex}";
 
         _sessions[sessionId] = new MockSession { Amount = amount, Timestamp = DateTime.UtcNow };
