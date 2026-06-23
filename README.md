@@ -12,8 +12,10 @@
 ```
 DeviceHub.slnx
 src/
-├── DeviceHub.Devices.Contracts/    # 抽象接口 + DTO + 配置模型
+├── DeviceHub.Devices.Contracts/    # 抽象接口 + DTO + 配置模型（NuGet 发布）
 ├── DeviceHub.Devices.PcscReader/   # PCSC 读卡器实现
+├── DeviceHub.Cards.TransitCard/    # 互联互通卡 JT/T 978 协议封装
+├── DeviceHub.DriverLoader/         # 外部 DLL 插件加载器
 └── DeviceHub.Service.Api/          # Minimal APIs 主程序
 demo/                               # Vue 3 前端测试工具
 doc/                                # 设计文档（架构/API/打包/测试）
