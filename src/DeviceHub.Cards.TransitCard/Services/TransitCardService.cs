@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using DeviceHub.Cards.TransitCard.Constants;
+using DeviceHub.Cards.TransitCard.Helpers;
 using DeviceHub.Devices.Contracts;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
@@ -28,7 +29,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
     {
         var name = await ResolveReaderName(readerName, ct);
         await SelectTransitApplet(name, ct);
-        var cardNumBytes = await TransmitHex(name, ApduCommands.GetCardNumber, ct);
+        var cardNumBytes = await TransmitHex(name, ApduBuilder.GetCardNumber(), ct);
         var cardNumber = ParseCardNumber(cardNumBytes.ResponseData);
         return new CardInfo(cardNumber, IssuerCode: null, CardType: null, ExpiryDate: null, OtherData: null);
     }
@@ -37,7 +38,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
     {
         var name = await ResolveReaderName(readerName, ct);
         await SelectTransitApplet(name, ct);
-        var result = await TransmitHex(name, ApduCommands.GetBalance, ct);
+        var result = await TransmitHex(name, ApduBuilder.GetBalance(), ct);
         var balance = ParseBalance(result.ResponseData);
         return new BalanceInfo(balance);
     }
@@ -46,7 +47,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
     {
         var name = await ResolveReaderName(readerName, ct);
         await SelectTransitApplet(name, ct);
-        var result = await TransmitHex(name, ApduCommands.GetTransactionLog, ct);
+        var result = await TransmitHex(name, ApduBuilder.GetTransactionLog(), ct);
         return ParseTransactions(result.ResponseData, count);
     }
 
@@ -57,17 +58,17 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
 
         var sessionId = Guid.NewGuid().ToString("N");
         var amountHex = ((int)(amount * 100)).ToString("X8");
-        var unsignedApdu = $"{ApduCommands.CreditForLoad}{amountHex}0000000000000000";
+        var unsignedApdu = ApduBuilder.CreditForLoad(amountHex);
         var signData = $"{sessionId}{amountHex}";
 
-        var initCmd = $"{ApduCommands.InitRecharge}{ApduCommands.DefaultHostChallenge}";
+        var initCmd = ApduBuilder.InitRecharge(ApduBuilder.DefaultHostChallenge);
         var initResult = await TransmitHex(name, initCmd, ct);
 
         _sessions[sessionId] = new RechargeSession
         {
             ReaderName = name,
             Amount = amount,
-            HostChallenge = ApduCommands.DefaultHostChallenge,
+            HostChallenge = ApduBuilder.DefaultHostChallenge,
             CardChallenge = initResult.ResponseData,
             UnsignedApdu = unsignedApdu,
             Timestamp = DateTime.UtcNow
@@ -102,7 +103,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
 
     private async Task SelectTransitApplet(string readerName, CancellationToken ct)
     {
-        var result = await _pcsc.TransmitAsync(readerName, ApduCommands.SelectTransitAid, ct);
+        var result = await _pcsc.TransmitAsync(readerName, ApduBuilder.SelectTransitAid(), ct);
         if (!result.Success || result.Sw1 != SwConstants.SuccessPrefix)
         {
             _logger.LogWarning("SELECT AID failed for {Reader}: SW={Sw1}{Sw2}", readerName, result.Sw1, result.Sw2);
