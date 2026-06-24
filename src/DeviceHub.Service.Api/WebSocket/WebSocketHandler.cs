@@ -3,6 +3,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Cards.TransitCard;
 using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.WebSocket;

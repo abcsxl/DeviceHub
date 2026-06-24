@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using DeviceHub.Cards.TransitCard.Constants;
+using DeviceHub.Cards.TransitCard;
 using DeviceHub.Cards.TransitCard.Helpers;
 using DeviceHub.Devices.Contracts;
 using Microsoft.AspNetCore.Routing;
