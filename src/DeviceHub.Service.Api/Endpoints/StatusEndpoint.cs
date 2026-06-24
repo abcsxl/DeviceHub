@@ -4,9 +4,9 @@ using DeviceHub.Service.Api.WebSocket;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
-public static class StatusEndpoints
+public static class StatusEndpoint
 {
-    public static WebApplication MapStatusEndpoints(this WebApplication app)
+    public static WebApplication MapStatusEndpoint(this WebApplication app)
     {
         app.MapGet("/api/status", (ServiceState state, DriverRegistry registry, WebSocketHandler wsHandler) =>
         {

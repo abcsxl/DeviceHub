@@ -1,15 +1,13 @@
 using DeviceHub.Devices.Contracts;
-using DeviceHub.Cards.TransitCard.Models;
 using DeviceHub.Cards.TransitCard.Models.Requests;
-using DeviceHub.Cards.TransitCard;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace DeviceHub.Cards.TransitCard;
+namespace DeviceHub.Cards.TransitCard.Endpoints;
 
-internal static class TransitCardEndpointHelper
+internal static class TransitCardEndpoint
 {
     internal static void MapEndpoints(IEndpointRouteBuilder app)
     {

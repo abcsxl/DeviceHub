@@ -1,8 +1,8 @@
 namespace DeviceHub.Service.Api.Endpoints;
 
-public static class HealthEndpoints
+public static class HealthEndpoint
 {
-    public static WebApplication MapHealthEndpoints(this WebApplication app)
+    public static WebApplication MapHealthEndpoint(this WebApplication app)
     {
         app.MapGet("/api/health", () =>
         {

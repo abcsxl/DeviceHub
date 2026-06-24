@@ -1,4 +1,5 @@
 using DeviceHub.Cards.TransitCard.Constants;
+using DeviceHub.Cards.TransitCard.Endpoints;
 using DeviceHub.Cards.TransitCard.Helpers;
 using DeviceHub.Devices.Contracts;
 using Microsoft.AspNetCore.Routing;
@@ -154,7 +155,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         return records;
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder app) => TransitCardEndpointHelper.MapEndpoints(app);
+            public void MapEndpoints(IEndpointRouteBuilder app) => TransitCardEndpoint.MapEndpoints(app);
 
     private sealed class RechargeSession
     {

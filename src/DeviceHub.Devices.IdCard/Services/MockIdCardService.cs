@@ -1,5 +1,5 @@
 using DeviceHub.Devices.Contracts;
-using DeviceHub.Devices.IdCard.Helpers;
+using DeviceHub.Devices.IdCard.Endpoints;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 
@@ -29,7 +29,7 @@ public class MockIdCardService : IIdCardService, IHardwareEndpointRegistrar
         return Task.CompletedTask;
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder app) => IdCardEndpointHelper.MapEndpoints(app);
+    public void MapEndpoints(IEndpointRouteBuilder app) => IdCardEndpoint.MapEndpoints(app);
 
     public Task<List<ReaderInfo>> GetReadersAsync(CancellationToken ct = default)
     {

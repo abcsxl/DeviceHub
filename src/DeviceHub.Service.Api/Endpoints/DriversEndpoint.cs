@@ -6,9 +6,9 @@ using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
-public static class DriversEndpoints
+public static class DriversEndpoint
 {
-    public static WebApplication MapDriversEndpoints(this WebApplication app)
+    public static WebApplication MapDriversEndpoint(this WebApplication app)
     {
         app.MapGet("/api/drivers", (DriverRegistry registry) =>
         {

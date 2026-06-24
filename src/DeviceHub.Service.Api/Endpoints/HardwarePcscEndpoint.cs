@@ -3,9 +3,9 @@ using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
-public static class HardwarePcscEndpoints
+public static class HardwarePcscEndpoint
 {
-    public static WebApplication MapHardwarePcscEndpoints(this WebApplication app)
+    public static WebApplication MapHardwarePcscEndpoint(this WebApplication app)
     {
         var group = app.MapGroup("/api/hardware/pcsc");
 
