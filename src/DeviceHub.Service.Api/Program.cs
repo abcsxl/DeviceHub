@@ -7,6 +7,7 @@ using DeviceHub.DriverLoader;
 using DeviceHub.Service.Api.Endpoints;
 using DeviceHub.Service.Api.Extensions;
 using DeviceHub.Service.Api.Models;
+using DeviceHub.Service.Api.Services;
 using DeviceHub.Service.Api.WebSocket;
 using System.Net.NetworkInformation;
 
@@ -65,6 +66,7 @@ builder.Logging.AddProvider(logProvider);
 builder.Services.AddSingleton<DriverRegistry>();
 builder.Services.AddSingleton<ServiceState>();
 builder.Services.AddSingleton<WebSocketHandler>();
+builder.Services.AddSingleton<ConfigStoreService>();
 
 builder.Services.AddPcscService(builder.Configuration);
 builder.Services.AddTransitCardService(builder.Configuration);
@@ -147,7 +149,8 @@ app.MapStatusEndpoint()
    .MapLogsEndpoint()
    .MapDriversEndpoint()
    .MapServiceEndpoint()
-   .MapHealthEndpoint();
+   .MapHealthEndpoint()
+   .MapConfigStoreEndpoint();
 
 foreach (var registrar in app.Services.GetServices<IHardwareEndpointRegistrar>())
 {
