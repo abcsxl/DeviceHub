@@ -219,9 +219,28 @@ public sealed class WebSocketHandler : IDisposable
                 case "transitcard":
                     await HandleTransitCardAction(ws, services, parameters, requestId!, action);
                     break;
-                default:
-                    await SendErrorAsync(ws, requestId!, "INVALID_ACTION", string.Format(_localizer["UnknownTarget"], target));
+                case "printer":
+                    await HandlePrinterAction(ws, services, parameters, requestId!, action);
                     break;
+                case "id-card":
+                    await HandleIdCardAction(ws, services, parameters, requestId!, action);
+                    break;
+                default:
+                {
+                    var handled = false;
+                    foreach (var handler in services.GetServices<IHardwareWebSocketHandler>())
+                    {
+                        if (handler.Target == target)
+                        {
+                            await handler.TryHandleAsync(ws, action, parameters, requestId!, services);
+                            handled = true;
+                            break;
+                        }
+                    }
+                    if (!handled)
+                        await SendErrorAsync(ws, requestId!, "INVALID_ACTION", string.Format(_localizer["UnknownTarget"], target));
+                    break;
+                }
             }
         }
         catch (JsonException)
@@ -396,6 +415,153 @@ public sealed class WebSocketHandler : IDisposable
         catch (InvalidOperationException ex)
         {
             await SendErrorAsync(ws, requestId, "CARD_NOT_PRESENT", ex.Message);
+            return;
+        }
+
+        var response = new
+        {
+            requestId,
+            success = true,
+            data,
+            timestamp = DateTime.UtcNow
+        };
+
+        var responseJson = JsonSerializer.Serialize(response);
+        var bytes = Encoding.UTF8.GetBytes(responseJson);
+        await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+
+    private async Task HandlePrinterAction(
+        System.Net.WebSockets.WebSocket ws, IServiceProvider services, JsonElement parameters,
+        string requestId, string action)
+    {
+        var printer = services.GetService<IPrinterService>();
+        if (printer == null)
+        {
+            await SendErrorAsync(ws, requestId, "DRIVER_NOT_FOUND", "Printer service not available");
+            return;
+        }
+
+        object? data = null;
+        switch (action)
+        {
+            case "list":
+                var printers = await printer.GetPrintersAsync();
+                data = new { printers };
+                break;
+
+            case "print":
+            {
+                var text = GetParam(parameters, "text");
+                var printerName = GetParam(parameters, "printerName");
+                if (string.IsNullOrEmpty(text))
+                {
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "text is required");
+                    return;
+                }
+                var ok = await printer.PrintTextAsync(text, printerName);
+                if (!ok)
+                {
+                    await SendErrorAsync(ws, requestId, "PRINT_FAILED", "Print failed");
+                    return;
+                }
+                data = new { success = true };
+                break;
+            }
+
+            case "print_raw":
+            {
+                var rawHex = GetParam(parameters, "data");
+                var printerName = GetParam(parameters, "printerName");
+                if (string.IsNullOrEmpty(rawHex))
+                {
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "data (hex) is required");
+                    return;
+                }
+                var rawData = Convert.FromHexString(rawHex);
+                var okRaw = await printer.PrintRawAsync(rawData, printerName);
+                if (!okRaw)
+                {
+                    await SendErrorAsync(ws, requestId, "PRINT_FAILED", "Print failed");
+                    return;
+                }
+                data = new { success = true };
+                break;
+            }
+
+            default:
+                await SendErrorAsync(ws, requestId, "INVALID_ACTION", "Unknown printer action");
+                return;
+        }
+
+        var response = new
+        {
+            requestId,
+            success = true,
+            data,
+            timestamp = DateTime.UtcNow
+        };
+
+        var responseJson = JsonSerializer.Serialize(response);
+        var bytes = Encoding.UTF8.GetBytes(responseJson);
+        await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+
+    private async Task HandleIdCardAction(
+        System.Net.WebSockets.WebSocket ws, IServiceProvider services, JsonElement parameters,
+        string requestId, string action)
+    {
+        var idCard = services.GetService<IIdCardService>();
+        if (idCard == null)
+        {
+            await SendErrorAsync(ws, requestId, "DRIVER_NOT_FOUND", "IdCard service not available");
+            return;
+        }
+
+        object? data = null;
+        try
+        {
+            switch (action)
+            {
+                case "readers":
+                    var readers = await idCard.GetReadersAsync();
+                    data = new { readers };
+                    break;
+
+                case "read":
+                {
+                    var readerName = GetParam(parameters, "readerName");
+                    var info = await idCard.ReadCardAsync(readerName);
+                    if (info == null)
+                    {
+                        await SendErrorAsync(ws, requestId, "CARD_NOT_FOUND", "No ID card detected");
+                        return;
+                    }
+                    data = info;
+                    break;
+                }
+
+                case "read_photo":
+                {
+                    var readerName = GetParam(parameters, "readerName");
+                    var photo = await idCard.ReadPhotoAsync(readerName);
+                    if (photo == null || photo.Length == 0)
+                    {
+                        await SendErrorAsync(ws, requestId, "PHOTO_NOT_FOUND", "No photo data");
+                        return;
+                    }
+                    data = new { photo = Convert.ToBase64String(photo), format = "image/jpeg" };
+                    break;
+                }
+
+                default:
+                    await SendErrorAsync(ws, requestId, "INVALID_ACTION", "Unknown id-card action");
+                    return;
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            await SendErrorAsync(ws, requestId, "CARD_NOT_FOUND", ex.Message);
             return;
         }
 
