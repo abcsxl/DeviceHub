@@ -2,7 +2,7 @@
 import { ref, reactive } from 'vue'
 import { getJson, putJson, postJson, setLanguage } from './api'
 
-type Tab = 'status' | 'config' | 'logs' | 'drivers' | 'service' | 'health' | 'pcsc' | 'transitcard' | 'ws'
+type Tab = 'status' | 'config' | 'logs' | 'drivers' | 'service' | 'health' | 'pcsc' | 'transitcard' | 'printer' | 'ws'
 
 const activeTab = ref<Tab>('status')
 const tabs: { key: Tab; label: string }[] = [
@@ -14,6 +14,7 @@ const tabs: { key: Tab; label: string }[] = [
   { key: 'health', label: 'HEALTH' },
   { key: 'pcsc', label: 'PCSC' },
   { key: 'transitcard', label: 'TRANSIT' },
+  { key: 'printer', label: 'PRINTER' },
   { key: 'ws', label: 'WS' },
 ]
 
@@ -189,7 +190,35 @@ async function rechargeExecute() {
 }
 
 // ==============================
-// 8. WebSocket
+// 9. Printer
+// ==============================
+const printerName = ref('')
+const printerText = ref('')
+const printerNameRaw = ref('')
+const printerRawData = ref('')
+
+async function getPrinters() {
+  await call('printerList', () => getJson('/api/hardware/printer/printers'))
+}
+
+async function printText() {
+  if (!printerText.value) return
+  await call('printerPrint', () => postJson('/api/hardware/printer/print', {
+    text: printerText.value,
+    printerName: printerName.value || undefined
+  }))
+}
+
+async function printRaw() {
+  if (!printerRawData.value) return
+  await call('printerRaw', () => postJson('/api/hardware/printer/print-raw', {
+    data: printerRawData.value,
+    printerName: printerNameRaw.value || undefined
+  }))
+}
+
+// ==============================
+// 10. WebSocket
 // ==============================
 const wsConnected = ref(false)
 const wsLog = ref<string[]>([])
@@ -461,12 +490,53 @@ function wsSend() {
             <label>macSignature <input v-model="transitMacSignature" style="width:350px;font-family:monospace" /></label>
           </div>
           <button class="primary" @click="rechargeExecute">POST recharge/execute</button>
-          <pre v-if="results.rechargeExec" class="result">{{ results.rechargeExec }}</pre>
-          <pre v-else-if="errors.rechargeExec" class="error-result">{{ errors.rechargeExec }}</pre>
-        </div>
-      </section>
+      <pre v-if="results.rechargeExec" class="result">{{ results.rechargeExec }}</pre>
+      <pre v-else-if="errors.rechargeExec" class="error-result">{{ errors.rechargeExec }}</pre>
+    </div>
+  </section>
 
-      <!-- ========== WEBSOCKET ========== -->
+  <!-- ========== PRINTER ========== -->
+  <section v-if="activeTab === 'printer'">
+    <div class="section-header">
+      <h2>打印机</h2>
+      <code>/api/hardware/printer/*</code>
+    </div>
+
+    <div class="btn-group" style="margin-bottom:8px">
+      <button class="primary" @click="getPrinters">GET printers</button>
+    </div>
+
+    <div v-if="results.printerList || errors.printerList">
+      <pre v-if="results.printerList" class="result">{{ results.printerList }}</pre>
+      <pre v-else-if="errors.printerList" class="error-result">{{ errors.printerList }}</pre>
+    </div>
+
+    <hr />
+    <h3 style="margin-bottom:6px">打印文本</h3>
+    <div class="filter-row">
+      <label>printerName <input v-model="printerName" placeholder="留空使用默认" style="width:250px" /></label>
+    </div>
+    <div class="filter-row">
+      <label>text <textarea v-model="printerText" rows="3" class="code-textarea" placeholder="要打印的文本内容"></textarea></label>
+    </div>
+    <button class="primary" @click="printText">POST print</button>
+    <pre v-if="results.printerPrint" class="result">{{ results.printerPrint }}</pre>
+    <pre v-else-if="errors.printerPrint" class="error-result">{{ errors.printerPrint }}</pre>
+
+    <hr />
+    <h3 style="margin-bottom:6px">打印原始数据（Hex）</h3>
+    <div class="filter-row">
+      <label>printerName <input v-model="printerNameRaw" placeholder="留空使用默认" style="width:250px" /></label>
+    </div>
+    <div class="filter-row">
+      <label>data (hex) <input v-model="printerRawData" style="width:400px;font-family:monospace" placeholder="1B405B010A48656C6C6F0A1B40" /></label>
+    </div>
+    <button class="primary" @click="printRaw">POST print-raw</button>
+    <pre v-if="results.printerRaw" class="result">{{ results.printerRaw }}</pre>
+    <pre v-else-if="errors.printerRaw" class="error-result">{{ errors.printerRaw }}</pre>
+  </section>
+
+  <!-- ========== WEBSOCKET ========== -->
       <section v-if="activeTab === 'ws'">
         <div class="section-header">
           <h2>WebSocket</h2>

@@ -1,6 +1,8 @@
 using DeviceHub.Cards.TransitCard.Extensions;
 using DeviceHub.Devices.Contracts;
 using DeviceHub.Devices.PcscReader.Extensions;
+using DeviceHub.Devices.Printer.Extensions;
+using DeviceHub.Devices.IdCard.Extensions;
 using DeviceHub.DriverLoader;
 using DeviceHub.Service.Api.Endpoints;
 using DeviceHub.Service.Api.Extensions;
@@ -66,6 +68,8 @@ builder.Services.AddSingleton<WebSocketHandler>();
 
 builder.Services.AddPcscService(builder.Configuration);
 builder.Services.AddTransitCardService(builder.Configuration);
+builder.Services.AddPrinterService(builder.Configuration);
+builder.Services.AddIdCardService(builder.Configuration);
 builder.Services.LoadExternalDrivers(builder.Configuration);
 builder.Services.AddHostedService<PingService>();
 
@@ -112,6 +116,30 @@ try
 catch (InvalidOperationException)
 {
     startupLogger.LogInformation("PCSC driver not enabled, skipping registration");
+}
+
+try
+{
+    var printerService = app.Services.GetRequiredService<IPrinterService>();
+    await printerService.InitAsync();
+    registry.Register("Printer", printerService);
+    startupLogger.LogInformation("Printer driver registered");
+}
+catch (InvalidOperationException)
+{
+    startupLogger.LogInformation("Printer driver not enabled, skipping registration");
+}
+
+try
+{
+    var idCardService = app.Services.GetRequiredService<IIdCardService>();
+    await idCardService.InitAsync();
+    registry.Register("IdCard", idCardService);
+    startupLogger.LogInformation("IdCard driver registered");
+}
+catch (InvalidOperationException)
+{
+    startupLogger.LogInformation("IdCard driver not enabled, skipping registration");
 }
 
 app.MapStatusEndpoints()
