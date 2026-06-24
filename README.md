@@ -5,7 +5,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/abcsxl/DeviceHub)](https://github.com/abcsxl/DeviceHub/releases)
 ![GitHub Language](https://img.shields.io/github/languages/top/abcsxl/DeviceHub)
 
-硬件设备网关服务，将 PCSC 读卡器、证卡打印机、身份证读卡器等硬件能力抽象为 REST API + WebSocket。默认英语（en-US），支持中文简体（zh-CN），通过 `Accept-Language` 请求头切换。
+硬件设备网关服务，将 PCSC 读卡器、系统打印机、身份证读卡器等硬件能力抽象为 REST API + WebSocket。默认英语（en-US），支持中文简体（zh-CN），通过 `Accept-Language` 请求头切换。
 
 ## 项目结构
 
@@ -14,6 +14,8 @@ DeviceHub.slnx
 src/
 ├── DeviceHub.Devices.Contracts/    # 抽象接口 + DTO + 配置模型（NuGet 发布）
 ├── DeviceHub.Devices.PcscReader/   # PCSC 读卡器实现
+├── DeviceHub.Devices.Printer/      # 系统打印机（PrintDocument + Win32 Spooler）
+├── DeviceHub.Devices.IdCard/       # 身份证读卡器（stub，需厂商 SDK）
 ├── DeviceHub.Cards.TransitCard/    # 互联互通卡 JT/T 978 协议封装
 ├── DeviceHub.DriverLoader/         # 外部 DLL 插件加载器
 └── DeviceHub.Service.Api/          # Minimal APIs 主程序
@@ -35,8 +37,8 @@ dotnet run --project src/DeviceHub.Service.Api --urls http://localhost:5000
 
 | 文件 | 内容 |
 |------|------|
-| `doc/01-architecture-v1.0.3.md` | 三层架构设计、硬件抽象、Mock 模式、多语言支持 |
-| `doc/02-api-specification-v1.0.3.md` | REST + WebSocket 接口规范、Mock 行为说明 |
+| `doc/01-architecture-v1.1.0.md` | 三层架构设计、硬件抽象、Mock 模式、多语言支持 |
+| `doc/02-api-specification-v1.2.0.md` | REST + WebSocket 接口规范、Mock 行为说明 |
 | `doc/03-packaging-v1.1.0.md` | Windows / Linux 部署打包 |
 | `doc/04-cross-platform-v1.0.0.md` | 跨平台注意事项 |
 | `doc/05-testing-v1.1.0.md` | 测试指南 |
