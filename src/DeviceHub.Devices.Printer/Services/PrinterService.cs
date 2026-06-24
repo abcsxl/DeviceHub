@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using DeviceHub.Devices.Contracts;
-using DeviceHub.Devices.Printer.Helpers;
+using DeviceHub.Devices.Printer.Endpoints;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 
@@ -34,7 +34,7 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
         return Task.CompletedTask;
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder app) => PrinterEndpointHelper.MapEndpoints(app);
+    public void MapEndpoints(IEndpointRouteBuilder app) => PrinterEndpoint.MapEndpoints(app);
 
     public Task<List<PrinterInfo>> GetPrintersAsync(CancellationToken ct = default)
     {

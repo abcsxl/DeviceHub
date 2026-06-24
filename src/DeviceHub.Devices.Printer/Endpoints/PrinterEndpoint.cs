@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace DeviceHub.Devices.Printer.Helpers;
+namespace DeviceHub.Devices.Printer.Endpoints;
 
-internal static class PrinterEndpointHelper
+internal static class PrinterEndpoint
 {
     internal static void MapEndpoints(IEndpointRouteBuilder app)
     {

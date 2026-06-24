@@ -1,10 +1,12 @@
 using System.Text;
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.PcscReader.Endpoints;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 
 namespace DeviceHub.Devices.PcscReader.Services;
 
-public class PcscService : IPcscService, IDisposable
+public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 {
     private const uint Success = 0;
 
@@ -19,6 +21,7 @@ public class PcscService : IPcscService, IDisposable
 
     public string Name => "Pcsc";
     public HardwareStatus Status => _status;
+    public void MapEndpoints(IEndpointRouteBuilder app) => PcscEndpoint.MapEndpoints(app);
 
     public event EventHandler<CardStatusEventArgs>? CardStatusChanged;
 

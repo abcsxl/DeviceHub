@@ -1,7 +1,7 @@
 # DeviceHub — AGENTS.md
 
 ## 项目信息
-- 五个项目：`DeviceHub.Devices.Contracts`（抽象/接口 + NuGet 发布）→ `DeviceHub.Devices.PcscReader`（PCSC 实现）、`DeviceHub.Cards.TransitCard`（互联互通卡 JT/T 978 协议封装）→ `DeviceHub.DriverLoader`（外部 DLL 插件加载）→ `DeviceHub.Service.Api`（主程序）
+- 六个项目：`DeviceHub.Devices.Contracts`（抽象/接口 + NuGet 发布）→ `DeviceHub.Devices.PcscReader`（PCSC 实现）、`DeviceHub.Devices.Printer`（系统打印）、`DeviceHub.Devices.IdCard`（身份证阅读）、`DeviceHub.Cards.TransitCard`（互联互通卡 JT/T 978 协议封装）→ `DeviceHub.DriverLoader`（外部 DLL 插件加载）→ `DeviceHub.Service.Api`（主程序）
 - 命名体系：`DeviceHub.Devices.*` 硬件抽象，`DeviceHub.Cards.*` 卡协议封装
 - 目标框架 **net10.0**，Minimal APIs 项目
 - 三层架构：Minimal APIs → Service → Hardware，**不做 DDD / CQRS / MediatR**
@@ -57,6 +57,26 @@
 - 跨平台/国产化：`doc/04-cross-platform-v1.0.0.md`
 - 测试指南：`doc/05-testing-v1.1.0.md`（最新版）
 - Vue demo：`demo/`（README 见 `demo/README.md`）
+
+## 项目目录结构
+- 接口定义（`IXxxService`）位于项目根目录
+- 服务实现位于 `Services/`（真实服务 + Mock 服务）
+- 端点映射位于 `Endpoints/`（命名为 `*Endpoint.cs`，内部调用同名 `MapEndpoints`)
+- 请求 DTO 位于 `Models/Requests/`
+- 响应 DTO 位于 `Models/Responses/`
+- DI 注册位于 `Extensions/`（`ServiceExtensions.cs`，命名 `AddXxxService`）
+- 工具类位于 `Helpers/`（如 `ApduBuilder`）
+- 常量位于 `Constants/`（如 `SwConstants`）
+- 内置设备项目（`DeviceHub.Devices.*`）均实现 `IHardwareEndpointRegistrar`，端点由 `Program.cs` 的 `IHardwareEndpointRegistrar` 循环自动注册
+
+## Contracts 模型分类
+`DeviceHub.Devices.Contracts/Models/` 按语义分三个层级：
+
+| 目录 | 内容 | 示例 |
+|------|------|------|
+| `Models/` 根 | 操作返回结果、事件参数 | `TransmitResult`, `BalanceInfo`, `TransactionRecord`, `RechargeResult`, `CardStatusEventArgs` |
+| `Models/Hardware/` | 硬件实体描述 | `CardInfo`, `ReaderInfo`, `PrinterInfo`, `IdCardInfo` |
+| `Models/Config/` | 系统配置模型 | `AppConfig`, `DriverInfo`, `LogEntry`, `ServiceInfo` |
 
 ## 代码规范
 - 命名空间 `DeviceHub.*`；异步方法 `Async` 后缀（如 `TransmitAsync`）

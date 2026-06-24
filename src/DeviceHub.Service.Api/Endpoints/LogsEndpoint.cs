@@ -2,9 +2,9 @@ using DeviceHub.Service.Api.Models;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
-public static class LogsEndpoints
+public static class LogsEndpoint
 {
-    public static WebApplication MapLogsEndpoints(this WebApplication app)
+    public static WebApplication MapLogsEndpoint(this WebApplication app)
     {
         app.MapGet("/api/logs", (InMemoryLogProvider provider, string? level, int tail = 100) =>
         {

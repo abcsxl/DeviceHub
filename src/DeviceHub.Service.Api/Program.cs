@@ -142,13 +142,12 @@ catch (InvalidOperationException)
     startupLogger.LogInformation("IdCard driver not enabled, skipping registration");
 }
 
-app.MapStatusEndpoints()
-   .MapConfigEndpoints()
-   .MapLogsEndpoints()
-   .MapDriversEndpoints()
-   .MapServiceEndpoints()
-   .MapHealthEndpoints()
-   .MapHardwarePcscEndpoints();
+app.MapStatusEndpoint()
+   .MapConfigEndpoint()
+   .MapLogsEndpoint()
+   .MapDriversEndpoint()
+   .MapServiceEndpoint()
+   .MapHealthEndpoint();
 
 foreach (var registrar in app.Services.GetServices<IHardwareEndpointRegistrar>())
 {
@@ -160,6 +159,6 @@ wsHandler.MapRoutes(app);
 
 var env = app.Services.GetRequiredService<IWebHostEnvironment>();
 var configPath = Path.Combine(env.ContentRootPath, "appsettings.json");
-await ConfigEndpoints.InitializeDefaults(configPath);
+await ConfigEndpoint.InitializeDefaults(configPath);
 
 app.Run();

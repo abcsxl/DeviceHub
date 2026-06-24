@@ -2,9 +2,9 @@ using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
-public static class ServiceEndpoints
+public static class ServiceEndpoint
 {
-    public static WebApplication MapServiceEndpoints(this WebApplication app)
+    public static WebApplication MapServiceEndpoint(this WebApplication app)
     {
         app.MapPost("/api/service/restart", (
             IHostApplicationLifetime lifetime,

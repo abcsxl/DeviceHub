@@ -1,9 +1,11 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.PcscReader.Endpoints;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 
 namespace DeviceHub.Devices.PcscReader.Services;
 
-public class MockPcscService : IPcscService, IDisposable
+public class MockPcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 {
     private readonly ILogger<MockPcscService> _logger;
     private HardwareStatus _status = HardwareStatus.Stopped;
@@ -19,6 +21,7 @@ public class MockPcscService : IPcscService, IDisposable
 
     public string Name => "Pcsc";
     public HardwareStatus Status => _status;
+    public void MapEndpoints(IEndpointRouteBuilder app) => PcscEndpoint.MapEndpoints(app);
 
     public event EventHandler<CardStatusEventArgs>? CardStatusChanged;
 

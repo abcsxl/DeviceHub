@@ -6,7 +6,7 @@ using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
-public static class ConfigEndpoints
+public static class ConfigEndpoint
 {
     private static volatile string? _defaultConfigJson;
 
@@ -16,7 +16,7 @@ public static class ConfigEndpoints
             _defaultConfigJson = await File.ReadAllTextAsync(configPath, Encoding.UTF8);
     }
 
-    public static WebApplication MapConfigEndpoints(this WebApplication app)
+    public static WebApplication MapConfigEndpoint(this WebApplication app)
     {
         app.MapGet("/api/config", async (IConfiguration config) =>
         {

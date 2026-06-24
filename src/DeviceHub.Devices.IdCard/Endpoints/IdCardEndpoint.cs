@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace DeviceHub.Devices.IdCard.Helpers;
+namespace DeviceHub.Devices.IdCard.Endpoints;
 
-internal static class IdCardEndpointHelper
+internal static class IdCardEndpoint
 {
     internal static void MapEndpoints(IEndpointRouteBuilder app)
     {

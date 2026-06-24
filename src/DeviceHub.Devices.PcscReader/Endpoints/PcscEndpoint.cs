@@ -1,64 +1,67 @@
 using DeviceHub.Devices.Contracts;
-using Microsoft.Extensions.Localization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace DeviceHub.Service.Api.Endpoints;
+namespace DeviceHub.Devices.PcscReader.Endpoints;
 
-public static class HardwarePcscEndpoints
+internal static class PcscEndpoint
 {
-    public static WebApplication MapHardwarePcscEndpoints(this WebApplication app)
+    internal static void MapEndpoints(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/hardware/pcsc");
 
-        group.MapGet("/readers", async (HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapGet("/readers", async (HttpContext context) =>
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["PcscDriverNotRegistered"].Value }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC driver is not registered" }, statusCode: 503);
 
             var readers = await service.ListReadersAsync();
             return Results.Ok(new { readers });
         });
 
-        group.MapGet("/readers/{name}", async (string name, HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapGet("/readers/{name}", async (string name, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["PcscDriverNotRegistered"].Value }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC driver is not registered" }, statusCode: 503);
 
             var readers = await service.ListReadersAsync();
             if (readers.All(r => r.Name != name))
-                return Results.NotFound(new { error = "READER_NOT_FOUND", message = L["ReaderNotFound", name].Value });
+                return Results.NotFound(new { error = "READER_NOT_FOUND", message = $"Reader not found: {name}" });
 
             var info = await service.GetReaderInfoAsync(name);
             if (!info.IsCardPresent)
-                return Results.NotFound(new { error = "CARD_NOT_PRESENT", message = L["CardNotPresent"].Value });
+                return Results.NotFound(new { error = "CARD_NOT_PRESENT", message = "No card present in reader" });
 
             return Results.Ok(info);
         });
 
-        group.MapGet("/readers/{name}/atr", async (string name, HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapGet("/readers/{name}/atr", async (string name, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["PcscDriverNotRegistered"] }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC driver is not registered" }, statusCode: 503);
 
             var atr = await service.GetAtrAsync(name);
             return atr != null
                 ? Results.Ok(new { atr })
-                : Results.NotFound(new { error = "CARD_NOT_PRESENT", message = L["CardNotPresent"].Value });
+                : Results.NotFound(new { error = "CARD_NOT_PRESENT", message = "No card present in reader" });
         });
 
-        group.MapPost("/transmit", async (TransmitRequest request, HttpContext context, IStringLocalizer<Program> L) =>
+        group.MapPost("/transmit", async (TransmitRequest request, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = L["PcscDriverNotRegistered"].Value }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC driver is not registered" }, statusCode: 503);
 
             if (string.IsNullOrEmpty(request.ReaderName) || string.IsNullOrEmpty(request.Apdu))
-                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = L["ReaderNameAndApduRequired"].Value });
+                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = "readerName and apdu are required" });
 
             if (request.Apdu.Length % 2 != 0)
-                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = L["ApduMustBeHexString"].Value });
+                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = "apdu must be a hex string" });
 
             var result = await service.TransmitAsync(request.ReaderName, request.Apdu);
             if (!result.Success)
@@ -82,9 +85,7 @@ public static class HardwarePcscEndpoints
                 success = result.Success
             });
         });
-
-        return app;
     }
 
-    private record TransmitRequest(string? ReaderName, string? Apdu);
+    internal record TransmitRequest(string? ReaderName, string? Apdu);
 }
