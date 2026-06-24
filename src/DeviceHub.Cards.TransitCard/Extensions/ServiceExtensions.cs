@@ -1,4 +1,5 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Cards.TransitCard;
 using DeviceHub.Cards.TransitCard.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

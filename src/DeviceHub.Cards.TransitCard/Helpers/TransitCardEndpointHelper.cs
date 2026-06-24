@@ -1,4 +1,7 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Cards.TransitCard.Models;
+using DeviceHub.Cards.TransitCard.Models.Requests;
+using DeviceHub.Cards.TransitCard;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -110,6 +113,4 @@ internal static class TransitCardEndpointHelper
         });
     }
 
-    internal record RechargeInitRequest(decimal Amount, string? ReaderName);
-    internal record RechargeExecuteRequest(string? SessionId, string? MacSignature);
 }
