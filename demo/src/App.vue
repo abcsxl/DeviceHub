@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { getJson, putJson, postJson, setLanguage } from './api'
 
 type Tab = 'status' | 'config' | 'logs' | 'drivers' | 'service' | 'health' | 'pcsc' | 'transitcard' | 'printer' | 'ws'
@@ -218,14 +218,74 @@ async function printRaw() {
 }
 
 // ==============================
-// 10. WebSocket
+// 10. WebSocket (智能模式)
 // ==============================
 const wsConnected = ref(false)
 const wsLog = ref<string[]>([])
-const wsTarget = ref('pcsc')
-const wsAction = ref('list_readers')
 const wsParams = ref('{}')
 let ws: WebSocket | null = null
+
+interface WsActionDef {
+  label: string
+  params: string   // 参数说明文本
+  example: string  // JSON 示例
+}
+interface WsTargetDef {
+  label: string
+  actions: Record<string, WsActionDef>
+}
+
+const wsTargets: Record<string, WsTargetDef> = {
+  pcsc: {
+    label: 'PCSC 读卡器',
+    actions: {
+      list_readers: { label: '获取读卡器列表', params: '无', example: '{}' },
+      get_reader_status: { label: '获取读卡器状态', params: '"readerName": "读卡器名称"', example: '{"readerName":"OMNIKEY CardMan 5x21-CL 0"}' },
+      get_atr: { label: '获取卡片 ATR', params: '"readerName": "读卡器名称"', example: '{"readerName":"OMNIKEY CardMan 5x21-CL 0"}' },
+      transmit: { label: '发送 APDU', params: '"readerName": "读卡器名称", "apdu": "HEX"', example: '{"readerName":"OMNIKEY CardMan 5x21-CL 0","apdu":"00A4040008A00102030405060700"}' },
+    }
+  },
+  transitcard: {
+    label: '交通卡 (JT/T 978)',
+    actions: {
+      read_card_info: { label: '读取卡片信息', params: '"readerName"(可选)', example: '{"readerName":"Mock Reader CL"}' },
+      read_balance: { label: '读取余额', params: '"readerName"(可选)', example: '{"readerName":"Mock Reader CL"}' },
+      read_transactions: { label: '读取交易记录', params: '"readerName"(可选), "count"(可选)', example: '{"readerName":"Mock Reader CL","count":5}' },
+      recharge_init: { label: '充值初始化', params: '"readerName"(可选), "amount":数字', example: '{"readerName":"Mock Reader CL","amount":5000}' },
+      recharge_execute: { label: '充值执行', params: '"sessionId", "macSignature"', example: '{"sessionId":"abc123","macSignature":"AABBCCDDEEFF0011"}' },
+    }
+  },
+  printer: {
+    label: '打印机',
+    actions: {
+      list: { label: '获取打印机列表', params: '无', example: '{}' },
+      print: { label: '打印文本', params: '"text": "内容", "printerName"(可选)', example: '{"text":"Hello World!","printerName":"Microsoft Print to PDF"}' },
+      print_raw: { label: '打印原始数据', params: '"data": "HEX", "printerName"(可选)', example: '{"data":"1B405B010A","printerName":"Brother QL-820NWB"}' },
+    }
+  },
+  'id-card': {
+    label: '身份证读卡器',
+    actions: {
+      readers: { label: '获取读卡器列表', params: '无', example: '{}' },
+      read: { label: '读取身份证信息', params: '"readerName"(可选)', example: '{"readerName":"IDCard Reader 0"}' },
+      read_photo: { label: '读取身份证照片', params: '"readerName"(可选)', example: '{"readerName":"IDCard Reader 0"}' },
+    }
+  },
+}
+
+const selectedTarget = ref('pcsc')
+const selectedAction = ref('list_readers')
+const actionDef = computed(() => wsTargets[selectedTarget.value]?.actions[selectedAction.value])
+const paramHint = computed(() => actionDef.value?.params ?? '')
+const targetActions = computed(() => {
+  const t = wsTargets[selectedTarget.value]
+  return t ? Object.entries(t.actions) : []
+})
+
+function fillExample() {
+  const ex = actionDef.value?.example
+  if (ex) wsParams.value = ex
+}
 
 function wsConnect() {
   if (ws) ws.close()
@@ -251,7 +311,11 @@ function wsSend() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return
   let params: Record<string, string> = {}
   try { params = JSON.parse(wsParams.value) } catch { /* ignore */ }
-  const msg: Record<string, unknown> = { target: wsTarget.value, action: wsAction.value }
+  const msg: Record<string, unknown> = {
+    requestId: crypto.randomUUID(),
+    target: selectedTarget.value,
+    action: selectedAction.value,
+  }
   if (Object.keys(params).length) msg.parameters = params
   ws.send(JSON.stringify(msg))
   wsLog.value.unshift(`[发送] ${JSON.stringify(msg)}`)
@@ -551,15 +615,30 @@ function wsSend() {
         </div>
 
         <div class="filter-row">
-          <label>target <input v-model="wsTarget" /></label>
-          <label>action <input v-model="wsAction" /></label>
+          <label>目标
+            <select v-model="selectedTarget" @change="selectedAction = targetActions[0]?.[0] || ''; fillExample()">
+              <option v-for="(t, k) in wsTargets" :key="k" :value="k">{{ t.label }} ({{ k }})</option>
+            </select>
+          </label>
+          <label>操作
+            <select v-model="selectedAction" @change="fillExample()">
+              <option v-for="[ak, ad] in targetActions" :key="ak" :value="ak">{{ ad.label }} ({{ ak }})</option>
+            </select>
+          </label>
         </div>
-        <div class="filter-row">
-          <label>parameters (JSON) <textarea v-model="wsParams" rows="2" class="code-textarea"></textarea></label>
+
+        <div class="param-hint" v-if="actionDef">
+          <strong>参数说明</strong>：{{ paramHint }}
+          <button class="link" @click="fillExample" style="margin-left:8px">[填充示例]</button>
+        </div>
+        <div class="filter-row" style="margin-top:6px">
+          <label style="flex:1">参数 (JSON)
+            <textarea v-model="wsParams" rows="3" class="code-textarea" style="margin-top:2px"></textarea>
+          </label>
         </div>
         <button class="primary" :disabled="!wsConnected" @click="wsSend">发送</button>
 
-        <h3 style="margin-top:12px">消息日志</h3>
+        <h3 style="margin-top:12px">消息日志 <span class="hint">点击「填充示例」可自动填入当前操作的参数模板</span></h3>
         <div class="ws-log">
           <div v-for="(msg, i) in wsLog" :key="i" class="ws-msg">{{ msg }}</div>
         </div>
@@ -616,6 +695,9 @@ pre.mini-result { font-size: 10px; margin: 4px 0 0; padding: 4px 6px; }
 .filter-row label { font-size: 12px; display: flex; align-items: center; gap: 4px; }
 .filter-row input, .filter-row select { padding: 3px 5px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; }
 .filter-row select { background: #fff; }
+
+/* param hint */
+.param-hint { font-size: 12px; color: #555; background: #f0f7ff; border: 1px solid #cce5ff; border-radius: 3px; padding: 6px 10px; margin: 6px 0; }
 
 /* textarea */
 textarea.code-textarea { width: 100%; font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace; font-size: 11px; padding: 6px; border: 1px solid #ccc; border-radius: 3px; resize: vertical; }

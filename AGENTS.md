@@ -52,7 +52,7 @@
 
 ## 源码位置
 - 架构设计：`doc/01-architecture-v1.1.0.md`（最新版）
-- API 规范：`doc/02-api-specification-v1.1.0.md`（最新版）
+- API 规范：`doc/02-api-specification-v1.3.0.md`（最新版）
 - 部署打包：`doc/03-packaging-v1.1.0.md`（最新版）
 - 跨平台/国产化：`doc/04-cross-platform-v1.0.0.md`
 - 测试指南：`doc/05-testing-v1.1.0.md`（最新版）
@@ -89,6 +89,14 @@
   - 资源文件位于 `src/DeviceHub.Service.Api/Resources/Strings.resx`（默认英语）和 `Strings.zh-CN.resx`（中文）
   - 新增字符串时，必须同时更新两个资源文件
   - 扩展方法位于 `Extensions/LocalizationExtensions.cs`
+
+## WebSocket 协议
+- 所有硬件操作均可通过 WS 完成（REST 功能完整超集），外加实时事件推送
+- 内置 target：`pcsc`、`transitcard`、`printer`、`id-card`
+- 插件 target：通过 `IHardwareWebSocketHandler` 接口注册（如 `kacyber-go-card`）
+- action 命名约定：下划线分隔小写，如 `read_card_info`、`update_binary_init`
+- 结果中涉及二进制数据用 base64 编码（如身份证照片 `photo` 字段）
+- 新增插件驱动时，同时实现 `IHardwareWebSocketHandler` 并在 `ServiceExtensions` 中注册
 
 ## 实施流程
 1. 阅读相关设计文档（`doc/` 下最新版）
