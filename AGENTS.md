@@ -45,6 +45,7 @@
 - 充值两步流程：init 返回 unsignedApdu + signData 供外部 HSM 签名，execute 接收 macSignature 完成
 - `DeviceHub.Devices.Contracts` 以 MIT 许可发布到 nuget.org，供闭源驱动引用
 - 闭源驱动通过 `DriverLoader.LoadExternalDrivers()` 扫描 `drivers/*.dll` 加载，需实现 `IHardwareService` + `[DriverName]` 属性
+- 闭源驱动可继承 `HardwareDriverBase`（定义在 Contracts），获得自描述配置加载能力：约定在 DLL 同级放置 `{DriverName}.json`，通过 `LoadConfig<T>()` 读取自身配置，无需侵入 DeviceHub 主配置体系
 - 安装程序 `InitializeSetup` 先 `net stop` + `sc delete` 旧服务，确保新服务读取新配置
 - 安装包多语言：Windows Inno Setup 双语（English/中文简体），Linux install.sh 启动时选择语言
 - `GeneratePackageOnBuild` 在 Contracts.csproj 中启用，每次构建产出 nupkg
