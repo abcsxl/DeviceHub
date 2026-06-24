@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { getJson, putJson, postJson, setLanguage } from './api'
+import { getJson, putJson, postJson, delJson, setLanguage } from './api'
 
-type Tab = 'status' | 'config' | 'logs' | 'drivers' | 'service' | 'health' | 'pcsc' | 'transitcard' | 'printer' | 'ws'
+type Tab = 'status' | 'config' | 'config-store' | 'logs' | 'drivers' | 'service' | 'health' | 'pcsc' | 'transitcard' | 'printer' | 'ws'
 
 const activeTab = ref<Tab>('status')
 const tabs: { key: Tab; label: string }[] = [
   { key: 'status', label: 'STATUS' },
   { key: 'config', label: 'CONFIG' },
+  { key: 'config-store', label: 'CONFIG-STORE' },
   { key: 'logs', label: 'LOGS' },
   { key: 'drivers', label: 'DRIVERS' },
   { key: 'service', label: 'SERVICE' },
@@ -61,6 +62,35 @@ async function putConfig() {
 
 function autoFillConfig() {
   window.setTimeout(() => { configPutBody.value = results.configGet }, 200)
+}
+
+// ==============================
+// 2.5. Config-Store
+// ==============================
+const configStoreKey = ref('')
+const configStoreValue = ref('')
+
+async function getConfigStoreList() {
+  await call('configStoreList', () => getJson('/api/config-store'))
+}
+
+async function getConfigStoreOne() {
+  if (!configStoreKey.value) return
+  await call('configStoreGetOne', () => getJson(`/api/config-store/${encodeURIComponent(configStoreKey.value)}`))
+}
+
+async function setConfigStore() {
+  if (!configStoreKey.value) return
+  await call('configStoreSet', () => putJson(`/api/config-store/${encodeURIComponent(configStoreKey.value)}`, { value: configStoreValue.value }))
+}
+
+async function deleteConfigStore() {
+  if (!configStoreKey.value) return
+  await call('configStoreDel', () => delJson(`/api/config-store/${encodeURIComponent(configStoreKey.value)}`))
+}
+
+async function clearConfigStore() {
+  await call('configStoreClear', () => delJson('/api/config-store'))
 }
 
 // ==============================
@@ -407,6 +437,55 @@ function wsSend() {
         <div v-else class="hint-row">
           <button class="link" @click="getConfig(); autoFillConfig()">点击 GET 后自动填充到编辑框</button>
         </div>
+      </section>
+
+      <!-- ========== CONFIG-STORE ========== -->
+      <section v-if="activeTab === 'config-store'">
+        <div class="section-header">
+          <h2>自定义配置</h2>
+          <div class="btn-group">
+            <button class="primary" @click="getConfigStoreList">列出全部 GET /api/config-store</button>
+            <button class="danger-btn" @click="clearConfigStore">清空 DELETE /api/config-store</button>
+          </div>
+        </div>
+        <p class="desc">基于 JSON 文件的 Key-Value 持久化存储，配置项保存后重启不丢失。文件位于 data/config.json</p>
+
+        <div class="filter-row" style="margin-bottom:8px">
+          <label>Key <input v-model="configStoreKey" placeholder="配置键" style="width:160px;font-family:monospace" /></label>
+          <label>Value <input v-model="configStoreValue" placeholder="配置值" style="width:200px" /></label>
+          <button class="primary" style="font-size:12px;padding:2px 8px" @click="getConfigStoreOne">查询</button>
+          <button class="primary" style="font-size:12px;padding:2px 8px" @click="setConfigStore">增加/更新</button>
+          <button class="danger-btn" style="font-size:12px;padding:2px 8px" @click="deleteConfigStore">删除</button>
+        </div>
+
+        <div v-if="results.configStoreGetOne || errors.configStoreGetOne || results.configStoreSet || errors.configStoreSet || results.configStoreDel || errors.configStoreDel" class="dual-panel" style="margin-bottom:12px">
+          <div class="panel">
+            <h3>查询结果</h3>
+            <pre v-if="results.configStoreGetOne" class="result">{{ results.configStoreGetOne }}</pre>
+            <pre v-else-if="errors.configStoreGetOne" class="error-result">{{ errors.configStoreGetOne }}</pre>
+            <pre v-else class="placeholder">无</pre>
+          </div>
+          <div class="panel">
+            <h3>增加/更新结果</h3>
+            <pre v-if="results.configStoreSet" class="result">{{ results.configStoreSet }}</pre>
+            <pre v-else-if="errors.configStoreSet" class="error-result">{{ errors.configStoreSet }}</pre>
+            <pre v-else class="placeholder">无</pre>
+          </div>
+          <div class="panel">
+            <h3>删除结果</h3>
+            <pre v-if="results.configStoreDel" class="result">{{ results.configStoreDel }}</pre>
+            <pre v-else-if="errors.configStoreDel" class="error-result">{{ errors.configStoreDel }}</pre>
+            <pre v-else class="placeholder">无</pre>
+          </div>
+        </div>
+
+        <h3 style="margin-top:16px;margin-bottom:4px">全部配置</h3>
+        <pre v-if="results.configStoreList" class="result">{{ results.configStoreList }}</pre>
+        <pre v-else-if="errors.configStoreList" class="error-result">{{ errors.configStoreList }}</pre>
+        <pre v-else class="placeholder">点击「列出全部」按钮查看所有配置项</pre>
+
+        <pre v-if="results.configStoreClear" class="result" style="margin-top:8px">{{ results.configStoreClear }}</pre>
+        <pre v-else-if="errors.configStoreClear" class="error-result" style="margin-top:8px">{{ errors.configStoreClear }}</pre>
       </section>
 
       <!-- ========== LOGS ========== -->

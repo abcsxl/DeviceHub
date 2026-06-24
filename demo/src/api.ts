@@ -35,3 +35,12 @@ export async function postJson<T = unknown>(path: string, body?: unknown): Promi
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
   return res.json()
 }
+
+export async function delJson<T = unknown>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'DELETE',
+    headers: headers(),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
+  return res.json()
+}
