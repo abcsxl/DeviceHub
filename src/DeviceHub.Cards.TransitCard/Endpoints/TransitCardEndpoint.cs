@@ -1,5 +1,6 @@
 using DeviceHub.Devices.Contracts;
 using DeviceHub.Cards.TransitCard.Models.Requests;
+using DeviceHub.Cards.TransitCard.Models.Responses;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

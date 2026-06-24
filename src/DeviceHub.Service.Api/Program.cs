@@ -147,8 +147,7 @@ app.MapStatusEndpoint()
    .MapLogsEndpoint()
    .MapDriversEndpoint()
    .MapServiceEndpoint()
-   .MapHealthEndpoint()
-   .MapHardwarePcscEndpoint();
+   .MapHealthEndpoint();
 
 foreach (var registrar in app.Services.GetServices<IHardwareEndpointRegistrar>())
 {
