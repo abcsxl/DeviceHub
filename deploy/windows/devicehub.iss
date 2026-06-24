@@ -43,7 +43,6 @@ Name: "full"; Description: "Full installation (all hardware drivers)"
 Name: "custom"; Description: "Custom installation"; Flags: iscustom
 
 [Components]
-Name: "pcsc"; Description: "PCSC 读卡器支持"; Types: full custom; Flags: disablenouninstallwarning
 Name: "main"; Description: "核心服务"; Types: full custom; Flags: fixed disablenouninstallwarning
 
 [Files]
@@ -229,24 +228,6 @@ begin
   end;
 end;
 
-procedure SetDriverEnabled(var Lines: TArrayOfString; const SectionName, EnabledStr: String);
-var
-  i: Integer;
-begin
-  for i := 0 to GetArrayLength(Lines) - 1 do
-  begin
-    if Pos('"' + SectionName + '":', Lines[i]) > 0 then
-    begin
-      if i + 1 < GetArrayLength(Lines) then
-      begin
-        StringChangeEx(Lines[i + 1], '"Enabled": true', '"Enabled": ' + EnabledStr, False);
-        StringChangeEx(Lines[i + 1], '"Enabled": false', '"Enabled": ' + EnabledStr, False);
-      end;
-      Break;
-    end;
-  end;
-end;
-
 procedure SetHttpPort(var Lines: TArrayOfString; const Port: String);
 var
   i: Integer;
@@ -308,11 +289,6 @@ begin
     begin
       if LoadStringsFromFile(ConfigPath, Lines) then
       begin
-        if IsComponentSelected('pcsc') then
-          SetDriverEnabled(Lines, 'Pcsc', 'true')
-        else
-          SetDriverEnabled(Lines, 'Pcsc', 'false');
-
         SetHttpPort(Lines, IntToStr(SelectedPort));
 
         SaveStringsToFile(ConfigPath, Lines, False);

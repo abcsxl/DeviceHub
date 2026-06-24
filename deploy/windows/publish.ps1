@@ -44,8 +44,9 @@ foreach ($f in $files) {
   $hashHex = [System.BitConverter]::ToString($hashBytes).Replace("-", "").ToLower()
   $manifest[$relPath] = $hashHex
 }
-$manifest | ConvertTo-Json | Out-File "$PublishDir\hashes.json"
-Write-Host "  已生成 hashes.json ($($manifest.Count) 个文件)"
+$shaPath = "$PublishDir\.sha256"
+$manifest.GetEnumerator() | ForEach-Object { "$($_.Value) *$($_.Key)" } | Out-File -Encoding ASCII $shaPath
+Write-Host "  已生成 .sha256 ($($manifest.Count) 个文件)"
 
 if (-not $SkipInstaller) {
   # 3. 编译 Inno Setup 安装包

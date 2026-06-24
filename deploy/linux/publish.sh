@@ -18,14 +18,12 @@ dotnet publish "$REPO_ROOT/src/DeviceHub.Service.Api" \
   -c "$CONFIGURATION" -r "$RUNTIME" --self-contained true \
   -o "$PUBLISH_DIR"
 
-# 2. 生成 hashes.json
+# 2. 生成 .sha256
 echo "[2/3] 计算文件哈希 ..."
-find "$PUBLISH_DIR" -type f | while read -r f; do
-  rel="${f#$PUBLISH_DIR/}"
-  hash=$(sha256sum "$f" | cut -d' ' -f1)
-  echo "\"$rel\": \"$hash\""
-done | jq -s 'add' > "$PUBLISH_DIR/hashes.json"
-echo "  已生成 hashes.json"
+find "$PUBLISH_DIR" -type f -printf '%P\0' | while IFS= read -r -d '' rel; do
+  sha256sum "$PUBLISH_DIR/$rel"
+done > "$PUBLISH_DIR/.sha256"
+echo "  已生成 .sha256"
 
 # 3. 打包 tar.gz
 echo "[3/3] 打包 ..."
