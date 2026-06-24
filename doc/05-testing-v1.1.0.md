@@ -1,4 +1,4 @@
-# DeviceHub — 测试指南 (v1.0.0)
+# DeviceHub — 测试指南 (v1.1.0)
 
 ## 运行服务
 
@@ -222,5 +222,6 @@ response.EnsureSuccessStatusCode();
 
 ## 版本历史
 
+- v1.1.0 (2026-06-24): 新增打印机、身份证读卡器测试场景
 - v1.0.0 (2026-05-20): 增加 httpPort 字段验证说明
 - v1.0.0 (2026-05-19): 初版，覆盖管理接口 + PCSC 硬件 + WebSocket 测试

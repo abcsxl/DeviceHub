@@ -88,9 +88,8 @@ chmod +x deploy/linux/publish.sh
 安装流程：
 
 1. 选择安装目录（默认 `%ProgramFiles%\DeviceHub`）
-2. 勾选硬件组件（PCSC 读卡器支持等）
-3. 安装包写入 `appsettings.json`，根据勾选启用对应驱动
-4. 注册 Windows 服务 `DeviceHub` 并启动
+2. 选择 HTTP 端口（默认 5000）
+3. 注册 Windows 服务 `DeviceHub` 并启动
 
 卸载流程：
 

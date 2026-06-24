@@ -259,7 +259,7 @@ public static IServiceCollection LoadExternalDrivers(
 - 读取：`IOptions<T>` / `IConfiguration`
 - 写入：PUT `/api/config` → 写入 JSON 文件 → `IConfigurationRoot.Reload()` 即时生效
 - 配置模型充血，自带 `Validate()` 和 `Merge()` 方法
-- 硬件配置通过 `Drivers.Xxx.Enabled` 字段控制，安装时勾选
+- 硬件配置通过 `Drivers.Xxx.Enabled` 字段控制，默认全部启用
 
 ### 配置模型结构
 
@@ -325,7 +325,7 @@ public static IServiceCollection LoadExternalDrivers(
 
 | 平台 | 托管方式 | 打包 |
 |------|----------|------|
-| Windows | `UseWindowsService()` | Inno Setup（安装时勾选硬件） |
+| Windows | `UseWindowsService()` | Inno Setup（自动启用所有驱动） |
 | Linux | `UseSystemd()` + systemd service | 提供 .service 模板 |
 | 通用 | 命令行直接运行 | `dotnet publish` 自包含单文件 |
 

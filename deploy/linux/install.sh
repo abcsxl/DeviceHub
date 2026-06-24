@@ -16,33 +16,28 @@ LANG_CHOICE=${LANG_CHOICE:-1}
 
 if [ "$LANG_CHOICE" = "2" ]; then
   # 中文消息
-  MSG_HARDWARE_SELECT="[0/7] 硬件组件选择（直接回车=启用）..."
-  MSG_PCSC_PROMPT="启用 PCSC 读卡器支持？ [Y/n] "
-  MSG_PCSC_ENABLED="  → PCSC 读卡器: 启用"
-  MSG_PCSC_DISABLED="  → PCSC 读卡器: 禁用"
   MSG_DETECT_UPGRADE="检测到已安装版本，保留现有端口: "
   MSG_PORT_USED="端口已被占用"
   MSG_NEW_PORT="请输入新的 HTTP 端口 "
   MSG_USE_PORT="  → 使用端口: "
   MSG_PORT_AVAILABLE="  → HTTP 端口:  (可用)"
   MSG_PORT_RELEASE=" (安装时将释放)"
-  MSG_CHECK_STOP="[1/7] 检查并停止旧服务 ..."
+  MSG_CHECK_STOP="[1/6] 检查并停止旧服务 ..."
   MSG_FORCE_STOP="! 服务未能自动停止。"
   MSG_FORCE_PROMPT="是否强制结束进程以完成安装？ [Y/n] "
   MSG_FORCE_KILL="  → 正在强制结束进程..."
   MSG_SKIP_FORCE="  → 已跳过强制停止。安装完成后必须重启系统以应用更新。"
-  MSG_COPY_FILES="[2/7] 复制文件到 "
-  MSG_WRITE_CONFIG="[3/7] 写入硬件配置到 appsettings.json ..."
-  MSG_CONFIG_PORT="[4/7] 配置 HTTP 端口: "
-  MSG_REGISTER_SERVICE="[5/7] 注册 systemd 服务 ..."
-  MSG_ENABLE_SERVICE="[6/7] 启用服务（开机自启）..."
-  MSG_START_SERVICE="[7/7] 启动服务 ..."
+  MSG_COPY_FILES="[2/6] 复制文件到 "
+  MSG_CONFIG_PORT="[3/6] 配置 HTTP 端口: "
+  MSG_REGISTER_SERVICE="[4/6] 注册 systemd 服务 ..."
+  MSG_ENABLE_SERVICE="[5/6] 启用服务（开机自启）..."
+  MSG_START_SERVICE="[6/6] 启动服务 ..."
   MSG_SERVICE_STARTING="  ! 服务未启动，尝试重试..."
   MSG_SERVICE_OK="  → 服务已成功启动"
   MSG_SERVICE_FAIL="  ! 服务启动失败，请重启系统后重试"
-  MSG_SKIP_REGISTER="[5/7] 跳过服务注册（待重启后生效）"
-  MSG_SKIP_ENABLE="[6/7] 跳过服务启用"
-  MSG_SKIP_START="[7/7] 跳过服务启动"
+  MSG_SKIP_REGISTER="[4/6] 跳过服务注册（待重启后生效）"
+  MSG_SKIP_ENABLE="[5/6] 跳过服务启用"
+  MSG_SKIP_START="[6/6] 跳过服务启动"
   MSG_INSTALL_DONE="=== 安装完成 ==="
   MSG_MUST_RESTART="! 必须重启系统以应用所有更新。"
   MSG_REBOOT_PROMPT="是否立即重启？ [y/N] "
@@ -56,33 +51,28 @@ if [ "$LANG_CHOICE" = "2" ]; then
   MSG_SUGGEST_RESTART="! 建议重启系统以确保所有更新生效。"
 else
   # English messages
-  MSG_HARDWARE_SELECT="[0/7] Hardware component selection (Enter=enable)..."
-  MSG_PCSC_PROMPT="Enable PCSC reader support? [Y/n] "
-  MSG_PCSC_ENABLED="  → PCSC reader: enabled"
-  MSG_PCSC_DISABLED="  → PCSC reader: disabled"
   MSG_DETECT_UPGRADE="Detected existing installation, keeping port: "
   MSG_PORT_USED="Port is already in use"
   MSG_NEW_PORT="Enter new HTTP port "
   MSG_USE_PORT="  → Using port: "
   MSG_PORT_AVAILABLE="  → HTTP port:  (available)"
   MSG_PORT_RELEASE=" (will be released during install)"
-  MSG_CHECK_STOP="[1/7] Checking and stopping old service ..."
+  MSG_CHECK_STOP="[1/6] Checking and stopping old service ..."
   MSG_FORCE_STOP="! Service failed to stop automatically."
   MSG_FORCE_PROMPT="Force kill process to complete installation? [Y/n] "
   MSG_FORCE_KILL="  → Force killing process..."
   MSG_SKIP_FORCE="  → Skipped force stop. Must reboot after install to apply updates."
-  MSG_COPY_FILES="[2/7] Copying files to "
-  MSG_WRITE_CONFIG="[3/7] Writing hardware config to appsettings.json ..."
-  MSG_CONFIG_PORT="[4/7] Configuring HTTP port: "
-  MSG_REGISTER_SERVICE="[5/7] Registering systemd service ..."
-  MSG_ENABLE_SERVICE="[6/7] Enabling service (auto-start on boot)..."
-  MSG_START_SERVICE="[7/7] Starting service ..."
+  MSG_COPY_FILES="[2/6] Copying files to "
+  MSG_CONFIG_PORT="[3/6] Configuring HTTP port: "
+  MSG_REGISTER_SERVICE="[4/6] Registering systemd service ..."
+  MSG_ENABLE_SERVICE="[5/6] Enabling service (auto-start on boot)..."
+  MSG_START_SERVICE="[6/6] Starting service ..."
   MSG_SERVICE_STARTING="  ! Service not started, retrying..."
   MSG_SERVICE_OK="  → Service started successfully"
   MSG_SERVICE_FAIL="  ! Service failed to start, please reboot and retry"
-  MSG_SKIP_REGISTER="[5/7] Skipping service registration (pending reboot)"
-  MSG_SKIP_ENABLE="[6/7] Skipping service enable"
-  MSG_SKIP_START="[7/7] Skipping service start"
+  MSG_SKIP_REGISTER="[4/6] Skipping service registration (pending reboot)"
+  MSG_SKIP_ENABLE="[5/6] Skipping service enable"
+  MSG_SKIP_START="[6/6] Skipping service start"
   MSG_INSTALL_DONE="=== Installation Complete ==="
   MSG_MUST_RESTART="! Must reboot to apply all updates."
   MSG_REBOOT_PROMPT="Reboot now? [y/N] "
@@ -108,23 +98,7 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# 0. 交互式硬件选择和端口配置
-echo "$MSG_HARDWARE_SELECT"
-echo ""
-
-read -r -p "$MSG_PCSC_PROMPT" REPLY_PCSC
-REPLY_PCSC=${REPLY_PCSC:-Y}
-if [[ "$REPLY_PCSC" =~ ^[Yy] ]]; then
-  PCSC_ENABLED="true"
-  echo "$MSG_PCSC_ENABLED"
-else
-  PCSC_ENABLED="false"
-  echo "$MSG_PCSC_DISABLED"
-fi
-
-echo ""
-
-# 端口检查
+# 0. 端口配置
 DEFAULT_PORT=5000
 HTTP_PORT=$DEFAULT_PORT
 IS_UPGRADE=false
@@ -209,27 +183,13 @@ cp -r "$SCRIPT_DIR"/* "$APP_DIR/"
 rm -f "$APP_DIR/install.sh"
 chmod +x "$APP_DIR/DeviceHub.Service.Api"
 
-# 3. 写入硬件配置
-echo "$MSG_WRITE_CONFIG"
-CONFIG_FILE="$APP_DIR/appsettings.json"
-if [ -f "$CONFIG_FILE" ]; then
-  awk -v enabled="$PCSC_ENABLED" '
-    /"Pcsc"/ { in_pcsc=1 }
-    in_pcsc && /"Enabled"/ {
-      sub(/"Enabled": [a-z]+/, "\"Enabled\": " enabled)
-      in_pcsc=0
-    }
-    { print }
-  ' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
-fi
-
-# 4. 写入端口配置
+# 3. 配置 HTTP 端口
 echo "$MSG_CONFIG_PORT$HTTP_PORT ..."
 if [ -f "$CONFIG_FILE" ]; then
   sed -i "s/\"HttpPort\": *[0-9]*/\"HttpPort\": $HTTP_PORT/" "$CONFIG_FILE"
 fi
 
-# 5. 安装 systemd 服务 (条件执行)
+# 4. 安装 systemd 服务 (条件执行)
 if [ "$MUST_RESTART" = false ]; then
   echo "$MSG_REGISTER_SERVICE"
   cp "$SCRIPT_DIR/$SERVICE_FILE" /etc/systemd/system/

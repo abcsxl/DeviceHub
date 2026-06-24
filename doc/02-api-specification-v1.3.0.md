@@ -1033,16 +1033,40 @@ ws.onmessage = (e) => {
 }
 ```
 
-| 场景 | 推荐协议 | 原因 |
-|------|----------|------|
-| 配置管理、状态查询、驱动启停 | REST | curl / Swagger / CLI 可直接调试 |
-| 硬件操作（读卡、余额、打印、APDU、充值） | REST | 无状态、幂等、易集成 |
-| 卡片插拔 / 读卡器变动 / 打印完成 | WS（只收不发） | 服务端主动推送，无需轮询 |
-| 实时监控面板 | REST + WS | 操作走 fetch，事件走 onmessage |
+| 端点 / 操作 | 推荐协议 | 原因 |
+|-------------|----------|------|
+| **管理类** | | |
+| `GET /api/status`, `/api/config`, `/api/logs` | REST | curl / Swagger / CLI 可直接调试 |
+| `PUT /api/config` | REST | 配置修改天然无状态 |
+| `POST /api/config/reset` | REST | 一次性的管理操作 |
+| `GET /api/drivers`, 驱动 enable/disable | REST | 状态查询与变更 |
+| `GET /api/health` | REST | 健康检查通常由负载均衡器触发 |
+| **PCSC 硬件操作** | | |
+| `GET /api/hardware/pcsc/readers` | REST | 查询操作，无状态幂等 |
+| `GET /api/hardware/pcsc/atr` | REST | 同 |
+| `POST /api/hardware/pcsc/transmit` | REST | 同 |
+| **交通卡 (TransitCard) 操作** | | |
+| `GET info`, `GET balance`, `GET transactions` | REST | 查询操作，无状态幂等 |
+| `POST recharge/init`, `POST recharge/execute` | REST | 充值流程不依赖 WS 有状态 |
+| **打印机操作** | | |
+| `GET /api/hardware/printer/printers` | REST | 查询操作 |
+| `POST /api/hardware/printer/print` | REST | 打印发送不需要保持连接 |
+| `POST /api/hardware/printer/print-raw` | REST | 同 |
+| **身份证读卡器操作** | | |
+| `POST /api/hardware/id-card/read` | REST | 读证一次调用即完成 |
+| `POST /api/hardware/id-card/read-photo` | REST | 返回 base64 大照片数据 |
+| **WS 事件推送** | | |
+| `card_status_changed`（卡片插拔） | WS 仅接收 | 服务端主动推送，无需轮询 |
+| `reader_arrival` / `reader_removal` | WS 仅接收 | 被动事件，无 REST 对应 |
+| `job_completed` / `job_error`（打印） | WS 仅接收 | 异步完成通知 |
+| `card_inserted` / `card_removed`（身份证） | WS 仅接收 | 被动事件 |
+| **WS 自定义请求** | | |
+| 通过 WS 发送 target/action/parameters | REST 或 WS 均可 | 功能等价，统一走 WS 可省一条 HTTP 连接 |
+| 实时监控面板（混合模式） | REST + WS | 操作走 fetch，事件走 onmessage |
 
-WS 的核心不可替代价值在于**服务端主动推送**，其余场景 REST 更简洁通用。两个通道彼此独立——WS 断线不影响 REST 调用。
+WS 的核心不可替代价值在于**所有事件推送**，其余场景 REST 更简洁通用。两个通道彼此独立——WS 断线不影响 REST 调用。
 
-如果业务场景全部在浏览器 SPA 内完成且对网络稳定性有自信，也可统一走 WS 获得单通道的简洁性。两种模式功能完全等价，按需选择即可。
+如果业务场景全部在浏览器 SPA 内完成且对网络稳定性有自信，也可统一走 WS 获得单通道的简洁性。所有 REST 操作在 WS 上都有对应的 action，功能完全等价，按需选择即可。
 
 ---
 

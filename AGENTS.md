@@ -24,7 +24,7 @@
 - REST 侧重**管理**，也备选支持硬件操作，供 CLI 或非 WS 场景使用
 
 ## 部署形态
-- **Windows**: `UseWindowsService()` + Inno Setup 打包（安装时勾选启用的硬件 + 端口选择）
+- **Windows**: `UseWindowsService()` + Inno Setup 打包（自动启用所有驱动，仅配置端口）
 - **Linux**: `UseSystemd()` + systemd service 模板
 - 发布方式：`dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true`
 - CI/CD：`.github/workflows/release.yml`，release:published 或 workflow_dispatch 触发
