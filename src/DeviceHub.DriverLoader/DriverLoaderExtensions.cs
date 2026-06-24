@@ -27,29 +27,38 @@ public static class DriverLoaderExtensions
                 var asm = Assembly.LoadFrom(dllPath);
                 foreach (var type in asm.GetTypes())
                 {
-                    if (type.IsAbstract || !typeof(IHardwareService).IsAssignableFrom(type))
+                    if (type.IsAbstract || type.IsInterface)
                         continue;
 
-                    var driverName = type.GetCustomAttribute<DriverNameAttribute>()?.Name
-                        ?? type.Name.Replace("Service", "");
-
-                    var enabled = configuration.GetValue<bool?>($"Drivers:{driverName}:Enabled");
-                    if (enabled == false)
+                    if (typeof(IHardwareService).IsAssignableFrom(type))
                     {
-                        logger?.LogInformation("External driver {Name} not enabled, skipping", driverName);
-                        continue;
+                        var driverName = type.GetCustomAttribute<DriverNameAttribute>()?.Name
+                            ?? type.Name.Replace("Service", "");
+
+                        var enabled = configuration.GetValue<bool?>($"Drivers:{driverName}:Enabled");
+                        if (enabled == false)
+                        {
+                            logger?.LogInformation("External driver {Name} not enabled, skipping", driverName);
+                            continue;
+                        }
+
+                        services.AddSingleton(type);
+                        services.AddSingleton(typeof(IHardwareService), sp => sp.GetRequiredService(type));
+
+                        if (typeof(IHardwareEndpointRegistrar).IsAssignableFrom(type))
+                        {
+                            services.AddSingleton(typeof(IHardwareEndpointRegistrar), sp => sp.GetRequiredService(type));
+                            logger?.LogInformation("External driver {Name} registered endpoint registrar", driverName);
+                        }
+
+                        logger?.LogInformation("External driver {Name} loaded from {Dll}", driverName, Path.GetFileName(dllPath));
                     }
 
-                    services.AddSingleton(type);
-                    services.AddSingleton(typeof(IHardwareService), sp => sp.GetRequiredService(type));
-
-                    if (typeof(IHardwareEndpointRegistrar).IsAssignableFrom(type))
+                    if (typeof(IHardwareWebSocketHandler).IsAssignableFrom(type))
                     {
-                        services.AddSingleton(typeof(IHardwareEndpointRegistrar), sp => sp.GetRequiredService(type));
-                        logger?.LogInformation("External driver {Name} registered endpoint registrar", driverName);
+                        services.AddSingleton(typeof(IHardwareWebSocketHandler), type);
+                        logger?.LogInformation("External driver registered WebSocket handler: {Type}", type.Name);
                     }
-
-                    logger?.LogInformation("External driver {Name} loaded from {Dll}", driverName, Path.GetFileName(dllPath));
                 }
             }
             catch (Exception ex)

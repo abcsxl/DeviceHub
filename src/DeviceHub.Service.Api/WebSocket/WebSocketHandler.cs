@@ -579,11 +579,16 @@ public sealed class WebSocketHandler : IDisposable
     }
 
     private static string? GetParam(JsonElement parameters, string key)
-        => parameters.ValueKind == JsonValueKind.Object
-           && parameters.TryGetProperty(key, out var val)
-            ? val.GetString()
-            : null;
-
+    {
+        if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty(key, out var val))
+            return null;
+        return val.ValueKind switch
+        {
+            JsonValueKind.String => val.GetString(),
+            JsonValueKind.Number => val.GetRawText(),
+            _ => null
+        };
+    }
     private async Task SendErrorAsync(System.Net.WebSockets.WebSocket ws, string? requestId, string code, string message)
     {
         var response = new
