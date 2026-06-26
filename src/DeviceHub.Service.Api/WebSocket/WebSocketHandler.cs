@@ -312,7 +312,10 @@ public sealed class WebSocketHandler : IDisposable
                 if (!result.Success)
                 {
                     var errorCode = result.ErrorCode ?? "HARDWARE_ERROR";
-                    await SendErrorAsync(ws, requestId, errorCode, result.ErrorMessage ?? _localizer["TransmitFailed"]);
+                    var msg = result.ErrorMessage ?? _localizer["TransmitFailed"];
+                    if (result.Sw1 != null)
+                        msg += $" (SW={result.Sw1}{result.Sw2})";
+                    await SendErrorAsync(ws, requestId, errorCode, msg);
                     return;
                 }
                 data = new { sw1 = result.Sw1, sw2 = result.Sw2, responseData = result.ResponseData, success = result.Success };

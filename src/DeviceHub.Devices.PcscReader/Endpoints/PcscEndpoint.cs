@@ -74,7 +74,10 @@ internal static class PcscEndpoint
                     "INVALID_PARAMETERS" => 400,
                     _ => 500
                 };
-                return Results.Json(new { error = code, message = result.ErrorMessage }, statusCode: status);
+                var msg = result.ErrorMessage;
+                if (result.Sw1 != null)
+                    msg += $" (SW={result.Sw1}{result.Sw2})";
+                return Results.Json(new { error = code, message = msg, sw1 = result.Sw1, sw2 = result.Sw2 }, statusCode: status);
             }
 
             return Results.Ok(new
