@@ -39,6 +39,10 @@ internal static class TransitCardEndpoint
             {
                 return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
             }
+            catch (Exception ex)
+            {
+                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+            }
         });
 
         group.MapGet("/balance", async (string? readerName, HttpContext context) =>
@@ -56,6 +60,10 @@ internal static class TransitCardEndpoint
             {
                 return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
             }
+            catch (Exception ex)
+            {
+                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+            }
         });
 
         group.MapGet("/transactions", async (int? count, string? readerName, HttpContext context) =>
@@ -72,6 +80,10 @@ internal static class TransitCardEndpoint
             catch (InvalidOperationException ex)
             {
                 return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
             }
         });
 
@@ -92,6 +104,10 @@ internal static class TransitCardEndpoint
             catch (InvalidOperationException ex)
             {
                 return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
             }
         });
 
