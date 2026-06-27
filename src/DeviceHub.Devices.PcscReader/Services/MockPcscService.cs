@@ -111,6 +111,11 @@ public class MockPcscService : IPcscService, IHardwareEndpointRegistrar, IDispos
         }
     }
 
+    public Task<string?> ResetCardAsync(string readerName, CancellationToken ct = default)
+    {
+        return GetAtrAsync(readerName, ct);
+    }
+
     public Task<TransmitResult> TransmitAsync(string readerName, string apdu, CancellationToken ct = default)
     {
         lock (_stateLock)

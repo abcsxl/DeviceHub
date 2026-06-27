@@ -137,6 +137,22 @@ internal static class NativeMethods
     public const uint SCardShareShared = 1;
     public const uint SCardProtocolTx = 3;
     public const uint SCardLeaveCard = 0;
+    public const uint SCardResetCard = 1;
+    public const uint SCardUnpowerCard = 2;
+
+    [DllImport(WinSCard, EntryPoint = "SCardReconnect", ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+    private static extern int SCardReconnectWin(nint hCard, uint dwShareMode, uint dwPreferredProtocols, uint dwInitialization, out uint pdwActiveProtocol);
+
+    [DllImport(UnixSCard, EntryPoint = "SCardReconnect")]
+    private static extern int SCardReconnectUnix(nint hCard, uint dwShareMode, uint dwPreferredProtocols, uint dwInitialization, out uint pdwActiveProtocol);
+
+    public static int Reconnect(nint hCard, uint dwShareMode, uint dwPreferredProtocols, uint dwInitialization, out uint pdwActiveProtocol)
+    {
+        if (OperatingSystem.IsWindows())
+            return SCardReconnectWin(hCard, dwShareMode, dwPreferredProtocols, dwInitialization, out pdwActiveProtocol);
+        else
+            return SCardReconnectUnix(hCard, dwShareMode, dwPreferredProtocols, dwInitialization, out pdwActiveProtocol);
+    }
 }
 
 [StructLayout(LayoutKind.Sequential)]
