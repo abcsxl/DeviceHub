@@ -394,7 +394,7 @@ public sealed class WebSocketHandler : IDisposable
                 {
                     var readerName = GetParam(parameters, "readerName");
                     var amountStr = GetParam(parameters, "amount");
-                    if (!decimal.TryParse(amountStr, out var amount) || amount <= 0)
+                    if (!int.TryParse(amountStr, out var amount) || amount <= 0)
                     {
                         await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "Invalid amount");
                         return;

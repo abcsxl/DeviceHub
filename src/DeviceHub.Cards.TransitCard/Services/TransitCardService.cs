@@ -65,13 +65,13 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         return ParseTransactions(result.ResponseData, count);
     }
 
-    public async Task<RechargeInitResult> RechargeInitAsync(decimal amount, string? readerName = null, CancellationToken ct = default)
+    public async Task<RechargeInitResult> RechargeInitAsync(int amount, string? readerName = null, CancellationToken ct = default)
     {
         var name = await ResolveReaderName(readerName, ct);
         await SelectTransitApplet(name, ct);
 
         var sessionId = Guid.NewGuid().ToString("N");
-        var amountHex = ((int)(amount * 100)).ToString("X8");
+        var amountHex = amount.ToString("X8");
         var unsignedApdu = ApduBuilder.CreditForLoad(amountHex);
         var signData = $"{sessionId}{amountHex}";
 
@@ -175,7 +175,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
     private sealed class RechargeSession
     {
         public string ReaderName { get; set; } = "";
-        public decimal Amount { get; set; }
+        public int Amount { get; set; }
         public string HostChallenge { get; set; } = "";
         public string? CardChallenge { get; set; }
         public string UnsignedApdu { get; set; } = "";

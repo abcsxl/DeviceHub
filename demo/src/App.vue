@@ -646,7 +646,7 @@ function wsSend() {
         <hr />
         <h3 style="margin-bottom:6px">充值</h3>
         <div class="filter-row">
-          <label>金额(分) <input v-model.number="transitRechargeAmount" type="number" min="1" /></label>
+          <label>金额 <input v-model.number="transitRechargeAmount" type="number" min="1" /></label>
         </div>
         <button class="primary" @click="rechargeInit">POST recharge/init</button>
         <pre v-if="results.rechargeInit" class="result">{{ results.rechargeInit }}</pre>
