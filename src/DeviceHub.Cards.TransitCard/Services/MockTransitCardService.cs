@@ -28,6 +28,11 @@ public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegi
         return readers.Where(r => r.IsCardPresent).Select(r => r.Name).ToArray();
     }
 
+    public Task<string?> ResetCardAsync(string? readerName = null, CancellationToken ct = default)
+    {
+        return Task.FromResult<string?>("3B8F8001804F0CA00000030603000100000000");
+    }
+
     public Task<CardInfo> ReadCardInfoAsync(string? readerName = null, CancellationToken ct = default)
     {
         return Task.FromResult(new CardInfo(

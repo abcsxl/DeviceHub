@@ -364,6 +364,14 @@ public sealed class WebSocketHandler : IDisposable
                     break;
                 }
 
+                case "reset":
+                {
+                    var readerName = GetParam(parameters, "readerName");
+                    var atr = await transitCard.ResetCardAsync(readerName);
+                    data = new { atr };
+                    break;
+                }
+
                 case "read_balance":
                 {
                     var readerName = GetParam(parameters, "readerName");

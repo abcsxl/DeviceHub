@@ -24,6 +24,29 @@ internal static class TransitCardEndpoint
             return Results.Ok(new { readers });
         });
 
+        group.MapPost("/reset", async (string? readerName, HttpContext context) =>
+        {
+            var service = context.RequestServices.GetService<ITransitCardService>();
+            if (service == null)
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+
+            try
+            {
+                var atr = await service.ResetCardAsync(readerName);
+                if (atr == null)
+                    return Results.Json(new { error = "CARD_NOT_PRESENT", message = "复位失败，卡片未找到" }, statusCode: 404);
+                return Results.Ok(new { atr });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+            }
+        });
+
         group.MapGet("/info", async (string? readerName, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<ITransitCardService>();

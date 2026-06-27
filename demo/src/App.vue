@@ -189,6 +189,12 @@ async function getTransitReaders() {
   await call('transitReaders', () => getJson('/api/hardware/transitcard/readers'))
 }
 
+async function resetTransitCard() {
+  const body: Record<string, unknown> = {}
+  if (transitReaderName.value) body.readerName = transitReaderName.value
+  await call('transitReset', () => postJson('/api/hardware/transitcard/reset', body))
+}
+
 async function getCardInfo() {
   const params = transitReaderName.value ? `?readerName=${encodeURIComponent(transitReaderName.value)}` : ''
   await call('transitInfo', () => getJson(`/api/hardware/transitcard/info${params}`))
@@ -278,6 +284,7 @@ const wsTargets: Record<string, WsTargetDef> = {
   transitcard: {
     label: '交通卡 (JT/T 978)',
     actions: {
+      reset: { label: '复位卡片', params: '"readerName"(可选)', example: '{"readerName":"Mock Reader CL"}' },
       read_card_info: { label: '读取卡片信息', params: '"readerName"(可选)', example: '{"readerName":"Mock Reader CL"}' },
       read_balance: { label: '读取余额', params: '"readerName"(可选)', example: '{"readerName":"Mock Reader CL"}' },
       read_transactions: { label: '读取交易记录', params: '"readerName"(可选), "count"(可选)', example: '{"readerName":"Mock Reader CL","count":5}' },
@@ -614,6 +621,7 @@ function wsSend() {
 
         <div class="btn-group" style="margin-bottom:8px">
           <button class="primary" @click="getTransitReaders">GET readers</button>
+          <button class="primary" @click="resetTransitCard">POST reset</button>
           <button class="primary" @click="getCardInfo">GET info</button>
           <button class="primary" @click="getBalance">GET balance</button>
           <button class="primary" @click="getTransactions">GET transactions</button>
@@ -623,16 +631,17 @@ function wsSend() {
           <label>readerName <input v-model="transitReaderName" placeholder="留空自动选择" style="width:250px" /></label>
         </div>
 
-        <div v-if="results.transitReaders || results.transitInfo || results.transitBalance || results.transitTx" class="dual-panel">
+        <div v-if="results.transitReaders || results.transitReset || results.transitInfo || results.transitBalance || results.transitTx" class="dual-panel">
           <div class="panel">
             <pre v-if="results.transitReaders" class="result">READERS: {{ results.transitReaders }}</pre>
+            <pre v-if="results.transitReset" class="result">RESET: {{ results.transitReset }}</pre>
             <pre v-if="results.transitInfo" class="result">INFO: {{ results.transitInfo }}</pre>
             <pre v-if="results.transitBalance" class="result">BALANCE: {{ results.transitBalance }}</pre>
             <pre v-if="results.transitTx" class="result">TRANSACTIONS: {{ results.transitTx }}</pre>
           </div>
         </div>
-        <pre v-if="errors.transitReaders || errors.transitInfo || errors.transitBalance || errors.transitTx" class="error-result">
-          {{ errors.transitReaders || errors.transitInfo || errors.transitBalance || errors.transitTx }}</pre>
+        <pre v-if="errors.transitReaders || errors.transitReset || errors.transitInfo || errors.transitBalance || errors.transitTx" class="error-result">
+          {{ errors.transitReaders || errors.transitReset || errors.transitInfo || errors.transitBalance || errors.transitTx }}</pre>
 
         <hr />
         <h3 style="margin-bottom:6px">充值</h3>

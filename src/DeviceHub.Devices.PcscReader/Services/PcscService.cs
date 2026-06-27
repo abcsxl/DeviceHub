@@ -130,6 +130,36 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
         }
     }
 
+    public Task<string?> ResetCardAsync(string readerName, CancellationToken ct = default)
+    {
+        lock (_syncLock)
+        {
+            if (_context == nint.Zero)
+                return Task.FromResult<string?>(null);
+
+            var rc = NativeMethods.Connect(_context, readerName,
+                NativeMethods.SCardShareShared, NativeMethods.SCardProtocolTx,
+                out var hCard, out var protocol);
+
+            if (rc != Success)
+                return Task.FromResult<string?>(null);
+
+            try
+            {
+                rc = NativeMethods.Reconnect(hCard, NativeMethods.SCardShareShared,
+                    protocol, NativeMethods.SCardResetCard, out _);
+                if (rc != Success)
+                    return Task.FromResult<string?>(null);
+
+                return Task.FromResult(GetAtrFromHandle(hCard));
+            }
+            finally
+            {
+                NativeMethods.Disconnect(hCard, NativeMethods.SCardLeaveCard);
+            }
+        }
+    }
+
     public Task<TransmitResult> TransmitAsync(string readerName, string apdu, CancellationToken ct = default)
     {
         lock (_syncLock)
