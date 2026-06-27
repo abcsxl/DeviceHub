@@ -64,10 +64,10 @@ public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegi
         return Task.FromResult(records);
     }
 
-    public Task<RechargeInitResult> RechargeInitAsync(decimal amount, string? readerName = null, CancellationToken ct = default)
+    public Task<RechargeInitResult> RechargeInitAsync(int amount, string? readerName = null, CancellationToken ct = default)
     {
         var sessionId = Guid.NewGuid().ToString("N");
-        var amountHex = ((int)(amount * 100)).ToString("X8");
+        var amountHex = amount.ToString("X8");
         var unsignedApdu = ApduBuilder.CreditForLoad(amountHex);
         var signData = $"{sessionId}{amountHex}";
 
@@ -92,7 +92,7 @@ public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegi
 
     private sealed class MockSession
     {
-        public decimal Amount { get; set; }
+        public int Amount { get; set; }
         public DateTime Timestamp { get; set; }
     }
 }

@@ -15,7 +15,7 @@ public interface ITransitCardService
 
     Task<List<TransactionRecord>> ReadTransactionsAsync(int count = 10, string? readerName = null, CancellationToken ct = default);
 
-    Task<RechargeInitResult> RechargeInitAsync(decimal amount, string? readerName = null, CancellationToken ct = default);
+    Task<RechargeInitResult> RechargeInitAsync(int amount, string? readerName = null, CancellationToken ct = default);
 
     Task<RechargeResult> RechargeExecuteAsync(string sessionId, string macSignature, CancellationToken ct = default);
 }
