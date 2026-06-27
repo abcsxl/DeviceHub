@@ -7,6 +7,8 @@ public interface ITransitCardService
 {
     Task<string[]> GetAvailableReadersAsync(CancellationToken ct = default);
 
+    Task<string?> ResetCardAsync(string? readerName = null, CancellationToken ct = default);
+
     Task<CardInfo> ReadCardInfoAsync(string? readerName = null, CancellationToken ct = default);
 
     Task<BalanceInfo> ReadBalanceAsync(string? readerName = null, CancellationToken ct = default);

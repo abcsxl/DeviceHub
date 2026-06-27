@@ -27,6 +27,12 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         return readers.Where(r => r.IsCardPresent).Select(r => r.Name).ToArray();
     }
 
+    public async Task<string?> ResetCardAsync(string? readerName = null, CancellationToken ct = default)
+    {
+        var name = await ResolveReaderName(readerName, ct);
+        return await _pcsc.ResetCardAsync(name, ct);
+    }
+
     public async Task<CardInfo> ReadCardInfoAsync(string? readerName = null, CancellationToken ct = default)
     {
         var name = await ResolveReaderName(readerName, ct);
