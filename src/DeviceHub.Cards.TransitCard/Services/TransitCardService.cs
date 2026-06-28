@@ -14,6 +14,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
     private readonly IPcscService _pcsc;
     private readonly ILogger<TransitCardService> _logger;
     private readonly ConcurrentDictionary<string, RechargeSession> _sessions = new();
+    private readonly ConcurrentDictionary<string, ConsumeSession> _consumeSessions = new();
 
     public TransitCardService(IPcscService pcsc, ILogger<TransitCardService> logger)
     {
@@ -105,6 +106,53 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         return new RechargeResult(result.Success, result.Sw1, result.Sw2);
     }
 
+    public async Task<ConsumeInitResponse> ConsumeInitAsync(int dealflag, int keyindex, int amount, string termainno, string? readerName = null, CancellationToken ct = default)
+    {
+        var name = await ResolveReaderName(readerName, ct);
+        await SelectTransitApplet(name, ct);
+
+        var sessionId = Guid.NewGuid().ToString("N");
+        var amountHex = amount.ToString("X8");
+
+        var initApdu = ApduBuilder.InitConsume(dealflag, keyindex, amountHex, termainno);
+        var initResult = await TransmitHex(name, initApdu, ct);
+        if (!initResult.Success || initResult.Sw1 != SwConstants.SuccessPrefix)
+            throw new Exception($"消费初始化失败 (SW={initResult.Sw1}{initResult.Sw2})");
+
+        _consumeSessions[sessionId] = new ConsumeSession { ReaderName = name, Timestamp = DateTime.UtcNow };
+
+        return new ConsumeInitResponse(sessionId, initResult.ResponseData);
+    }
+
+    public async Task<ConsumeInitResponse> ConsumeCappInitAsync(int dealflag, int keyindex, int amount, string termainno, string? readerName = null, CancellationToken ct = default)
+    {
+        var name = await ResolveReaderName(readerName, ct);
+        await SelectTransitApplet(name, ct);
+
+        var sessionId = Guid.NewGuid().ToString("N");
+        var amountHex = amount.ToString("X8");
+
+        var initApdu = ApduBuilder.InitCappConsume(dealflag, keyindex, amountHex, termainno);
+        var initResult = await TransmitHex(name, initApdu, ct);
+        if (!initResult.Success || initResult.Sw1 != SwConstants.SuccessPrefix)
+            throw new Exception($"复合消费初始化失败 (SW={initResult.Sw1}{initResult.Sw2})");
+
+        _consumeSessions[sessionId] = new ConsumeSession { ReaderName = name, Timestamp = DateTime.UtcNow };
+
+        return new ConsumeInitResponse(sessionId, initResult.ResponseData);
+    }
+
+    public async Task<ConsumeResult> ConsumeExecuteAsync(string sessionId, int termdealno, string dealtime, string mac1, CancellationToken ct = default)
+    {
+        if (!_consumeSessions.TryRemove(sessionId, out var session))
+            return new ConsumeResult(false, null, null, "Session not found or expired");
+
+        var consumeApdu = ApduBuilder.DebitForPurchase(termdealno, dealtime, mac1);
+        var result = await TransmitHex(session.ReaderName, consumeApdu, ct);
+
+        return new ConsumeResult(result.Success, result.Sw1, result.Sw2);
+    }
+
     private async Task<string> ResolveReaderName(string? readerName, CancellationToken ct)
     {
         if (!string.IsNullOrEmpty(readerName))
@@ -179,6 +227,12 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         public string HostChallenge { get; set; } = "";
         public string? CardChallenge { get; set; }
         public string UnsignedApdu { get; set; } = "";
+        public DateTime Timestamp { get; set; }
+    }
+
+    private sealed class ConsumeSession
+    {
+        public string ReaderName { get; set; } = "";
         public DateTime Timestamp { get; set; }
     }
 }

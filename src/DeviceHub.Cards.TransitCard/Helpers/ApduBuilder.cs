@@ -23,4 +23,13 @@ public static class ApduBuilder
 
     public static string CreditForLoad(string amountHex)
         => $"8054000008{amountHex}0000000000000000";
+
+    public static string InitConsume(int dealflag, int keyindex, string amountHex, string termainno)
+        => $"805001{dealflag:X2}0B{keyindex:X2}{amountHex}{termainno}0F";
+
+    public static string InitCappConsume(int dealflag, int keyindex, string amountHex, string termainno)
+        => $"805003{dealflag:X2}0B{keyindex:X2}{amountHex}{termainno}0F";
+
+    public static string DebitForPurchase(int termdealno, string dealtime, string mac1)
+        => $"805401000F{termdealno:X8}{dealtime}{mac1}08";
 }

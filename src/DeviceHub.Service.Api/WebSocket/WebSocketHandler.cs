@@ -418,6 +418,69 @@ public sealed class WebSocketHandler : IDisposable
                     break;
                 }
 
+                case "consume_init":
+                {
+                    var readerName = GetParam(parameters, "readerName");
+                    var dealflagStr = GetParam(parameters, "dealflag");
+                    var keyindexStr = GetParam(parameters, "keyindex");
+                    var amountStr = GetParam(parameters, "amount");
+                    var termainno = GetParam(parameters, "termainno");
+
+                    var dealflag = int.TryParse(dealflagStr, out var df) ? df : 2;
+                    var keyindex = int.TryParse(keyindexStr, out var ki) ? ki : 0;
+                    if (!int.TryParse(amountStr, out var amount) || amount <= 0)
+                    {
+                        await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "amount must be greater than 0");
+                        return;
+                    }
+                    if (string.IsNullOrEmpty(termainno))
+                        termainno = "000000000000";
+
+                    var result = await transitCard.ConsumeInitAsync(dealflag, keyindex, amount, termainno, readerName);
+                    data = result;
+                    break;
+                }
+
+                case "consume_capp_init":
+                {
+                    var readerName = GetParam(parameters, "readerName");
+                    var dealflagStr = GetParam(parameters, "dealflag");
+                    var keyindexStr = GetParam(parameters, "keyindex");
+                    var amountStr = GetParam(parameters, "amount");
+                    var termainno = GetParam(parameters, "termainno");
+
+                    var dealflag = int.TryParse(dealflagStr, out var df) ? df : 2;
+                    var keyindex = int.TryParse(keyindexStr, out var ki) ? ki : 0;
+                    if (!int.TryParse(amountStr, out var amount) || amount <= 0)
+                    {
+                        await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "amount must be greater than 0");
+                        return;
+                    }
+                    if (string.IsNullOrEmpty(termainno))
+                        termainno = "000000000000";
+
+                    var resultCapp = await transitCard.ConsumeCappInitAsync(dealflag, keyindex, amount, termainno, readerName);
+                    data = resultCapp;
+                    break;
+                }
+
+                case "consume_execute":
+                {
+                    var sessionId = GetParam(parameters, "sessionId");
+                    var termdealnoStr = GetParam(parameters, "termdealno");
+                    var dealtime = GetParam(parameters, "dealtime");
+                    var mac1 = GetParam(parameters, "mac1");
+                    if (string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(dealtime) || string.IsNullOrEmpty(mac1))
+                    {
+                        await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "sessionId, termdealno, dealtime and mac1 are required");
+                        return;
+                    }
+                    var termdealno = int.TryParse(termdealnoStr, out var tdn) ? tdn : 0;
+                    var execResult = await transitCard.ConsumeExecuteAsync(sessionId, termdealno, dealtime, mac1);
+                    data = execResult;
+                    break;
+                }
+
                 default:
                     await SendErrorAsync(ws, requestId, "INVALID_ACTION", "Unknown transitcard action");
                     return;
