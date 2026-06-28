@@ -184,6 +184,14 @@ const transitReaderName = ref('Identiv uTrust 4701 F CL Reader 1')
 const transitRechargeAmount = ref(5000)
 const transitSessionId = ref('')
 const transitMacSignature = ref('AABBCCDD')
+const transitConsumeDealflag = ref(2)
+const transitConsumeKeyindex = ref(0)
+const transitConsumeAmount = ref(5000)
+const transitConsumeTermainno = ref('')
+const transitConsumeSessionId = ref('')
+const transitConsumeTermdealno = ref(0)
+const transitConsumeDealtime = ref('')
+const transitConsumeMac1 = ref('')
 
 async function getTransitReaders() {
   await call('transitReaders', () => getJson('/api/hardware/transitcard/readers'))
@@ -223,6 +231,59 @@ async function rechargeExecute() {
     sessionId: transitSessionId.value,
     macSignature: transitMacSignature.value
   }))
+}
+
+async function consumeTransitInit() {
+  const body: Record<string, unknown> = {
+    dealflag: transitConsumeDealflag.value,
+    keyindex: transitConsumeKeyindex.value,
+    amount: transitConsumeAmount.value,
+    termainno: transitConsumeTermainno.value || '000000000000'
+  }
+  if (transitReaderName.value) body.readerName = transitReaderName.value
+  errors.transitConsumeInit = ''
+  results.transitConsumeInit = ''
+  try {
+    const data: any = await postJson('/api/hardware/transitcard/consume/init', body)
+    results.transitConsumeInit = JSON.stringify(data, null, 2)
+    transitConsumeSessionId.value = data.sessionId || ''
+  } catch (e: unknown) {
+    errors.transitConsumeInit = e instanceof Error ? e.message : String(e)
+  }
+}
+
+async function consumeTransitCappInit() {
+  const body: Record<string, unknown> = {
+    dealflag: transitConsumeDealflag.value,
+    keyindex: transitConsumeKeyindex.value,
+    amount: transitConsumeAmount.value,
+    termainno: transitConsumeTermainno.value || '000000000000'
+  }
+  if (transitReaderName.value) body.readerName = transitReaderName.value
+  errors.transitConsumeCappInit = ''
+  results.transitConsumeCappInit = ''
+  try {
+    const data: any = await postJson('/api/hardware/transitcard/consume/capp-init', body)
+    results.transitConsumeCappInit = JSON.stringify(data, null, 2)
+    transitConsumeSessionId.value = data.sessionId || ''
+  } catch (e: unknown) {
+    errors.transitConsumeCappInit = e instanceof Error ? e.message : String(e)
+  }
+}
+
+async function consumeTransitExecute() {
+  const body: Record<string, unknown> = {
+    sessionId: transitConsumeSessionId.value,
+    termdealno: transitConsumeTermdealno.value,
+    dealtime: transitConsumeDealtime.value,
+    mac1: transitConsumeMac1.value
+  }
+  try {
+    const data: any = await postJson('/api/hardware/transitcard/consume/execute', body)
+    results.transitConsumeExec = JSON.stringify(data, null, 2)
+  } catch (e: unknown) {
+    errors.transitConsumeExec = e instanceof Error ? e.message : String(e)
+  }
 }
 
 // ==============================
@@ -290,6 +351,9 @@ const wsTargets: Record<string, WsTargetDef> = {
       read_transactions: { label: '读取交易记录', params: '"readerName"(可选), "count"(可选)', example: '{"readerName":"Mock Reader CL","count":5}' },
       recharge_init: { label: '充值初始化', params: '"readerName"(可选), "amount":数字', example: '{"readerName":"Mock Reader CL","amount":5000}' },
       recharge_execute: { label: '充值执行', params: '"sessionId", "macSignature"', example: '{"sessionId":"abc123","macSignature":"AABBCCDDEEFF0011"}' },
+      consume_init: { label: '消费初始化(P1=01)', params: '"readerName"(可选), "amount", "dealflag"(可选), "keyindex"(可选), "termainno"(可选)', example: '{"readerName":"Mock Reader CL","amount":5000}' },
+      consume_capp_init: { label: '复合消费初始化(P1=03)', params: '"readerName"(可选), "amount", "dealflag"(可选), "keyindex"(可选), "termainno"(可选)', example: '{"readerName":"Mock Reader CL","amount":5000}' },
+      consume_execute: { label: '消费执行(INS=54)', params: '"sessionId", "termdealno", "dealtime", "mac1"', example: '{"sessionId":"abc123","termdealno":1,"dealtime":"20260624120000","mac1":"AABBCCDD"}' },
     }
   },
   printer: {
@@ -662,6 +726,49 @@ function wsSend() {
           <button class="primary" @click="rechargeExecute">POST recharge/execute</button>
       <pre v-if="results.rechargeExec" class="result">{{ results.rechargeExec }}</pre>
       <pre v-else-if="errors.rechargeExec" class="error-result">{{ errors.rechargeExec }}</pre>
+    </div>
+
+    <hr />
+    <h3 style="margin-bottom:6px">消费</h3>
+    <div class="filter-row">
+      <label>dealflag(default=2) <input v-model.number="transitConsumeDealflag" type="number" min="1" max="2" style="width:50px" /></label>
+      <label>keyindex(default=0) <input v-model.number="transitConsumeKeyindex" type="number" min="0" max="255" style="width:60px" /></label>
+      <label>金额 <input v-model.number="transitConsumeAmount" type="number" min="1" style="width:100px" /></label>
+      <label>termainno(hex) <input v-model="transitConsumeTermainno" placeholder="12 hex chars; 默认 000000000000" style="width:180px;font-family:monospace" /></label>
+    </div>
+    <div class="btn-group" style="margin-bottom:8px">
+      <button class="primary" @click="consumeTransitInit">POST consume/init</button>
+      <button class="primary" @click="consumeTransitCappInit">POST consume/capp-init</button>
+    </div>
+    <div class="dual-panel" v-if="results.transitConsumeInit || results.transitConsumeCappInit || errors.transitConsumeInit || errors.transitConsumeCappInit">
+      <div class="panel">
+        <pre v-if="results.transitConsumeInit" class="result">{{ results.transitConsumeInit }}</pre>
+        <pre v-else-if="errors.transitConsumeInit" class="error-result">{{ errors.transitConsumeInit }}</pre>
+        <pre v-else class="placeholder">—</pre>
+      </div>
+      <div class="panel">
+        <pre v-if="results.transitConsumeCappInit" class="result">{{ results.transitConsumeCappInit }}</pre>
+        <pre v-else-if="errors.transitConsumeCappInit" class="error-result">{{ errors.transitConsumeCappInit }}</pre>
+        <pre v-else class="placeholder">—</pre>
+      </div>
+    </div>
+
+    <div v-if="results.transitConsumeInit || results.transitConsumeCappInit" style="margin-top:8px;border:1px solid #ddd;padding:8px;border-radius:4px">
+      <div class="filter-row">
+        <label>sessionId <input v-model="transitConsumeSessionId" style="width:350px;font-family:monospace" /></label>
+      </div>
+      <div class="filter-row">
+        <label>termdealno <input v-model.number="transitConsumeTermdealno" type="number" min="0" style="width:100px" /></label>
+      </div>
+      <div class="filter-row">
+        <label>dealtime(hex) <input v-model="transitConsumeDealtime" placeholder="yyyymmddHHmiss BCD" style="width:160px;font-family:monospace" /></label>
+      </div>
+      <div class="filter-row">
+        <label>mac1(hex) <input v-model="transitConsumeMac1" placeholder="8 hex chars" style="width:140px;font-family:monospace" /></label>
+      </div>
+      <button class="primary" @click="consumeTransitExecute">POST consume/execute</button>
+      <pre v-if="results.transitConsumeExec" class="result">{{ results.transitConsumeExec }}</pre>
+      <pre v-else-if="errors.transitConsumeExec" class="error-result">{{ errors.transitConsumeExec }}</pre>
     </div>
   </section>
 

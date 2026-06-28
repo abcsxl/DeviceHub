@@ -15,6 +15,7 @@ public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegi
     private readonly IPcscService _pcsc;
     private readonly ILogger<MockTransitCardService> _logger;
     private readonly ConcurrentDictionary<string, MockSession> _sessions = new();
+    private readonly ConcurrentDictionary<string, MockSession> _consumeSessions = new();
 
     public MockTransitCardService(IPcscService pcsc, ILogger<MockTransitCardService> logger)
     {
@@ -86,6 +87,31 @@ public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegi
 
         _logger.LogInformation("Mock recharge completed: amount={Amount}", session.Amount);
         return Task.FromResult(new RechargeResult(true, SwConstants.SuccessPrefix, "00"));
+    }
+
+    public Task<ConsumeInitResponse> ConsumeInitAsync(int dealflag, int keyindex, int amount, string termainno, string? readerName = null, CancellationToken ct = default)
+    {
+        var sessionId = Guid.NewGuid().ToString("N");
+        _consumeSessions[sessionId] = new MockSession { Amount = amount, Timestamp = DateTime.UtcNow };
+        _logger.LogInformation("Mock consume init: dealflag={Flag} keyindex={Key} amount={Amount} termainno={Term}", dealflag, keyindex, amount, termainno);
+        return Task.FromResult(new ConsumeInitResponse(sessionId, "AABBCCDD0011223344556677"));
+    }
+
+    public Task<ConsumeInitResponse> ConsumeCappInitAsync(int dealflag, int keyindex, int amount, string termainno, string? readerName = null, CancellationToken ct = default)
+    {
+        var sessionId = Guid.NewGuid().ToString("N");
+        _consumeSessions[sessionId] = new MockSession { Amount = amount, Timestamp = DateTime.UtcNow };
+        _logger.LogInformation("Mock CAPP consume init: dealflag={Flag} keyindex={Key} amount={Amount} termainno={Term}", dealflag, keyindex, amount, termainno);
+        return Task.FromResult(new ConsumeInitResponse(sessionId, "AABBCCDD0011223344556677"));
+    }
+
+    public Task<ConsumeResult> ConsumeExecuteAsync(string sessionId, int termdealno, string dealtime, string mac1, CancellationToken ct = default)
+    {
+        if (!_consumeSessions.TryRemove(sessionId, out var session))
+            return Task.FromResult(new ConsumeResult(false, null, null, "Session not found or expired"));
+
+        _logger.LogInformation("Mock consume execute: session={Session} amount={Amount} termdealno={No} dealtime={Time} mac1={Mac}", sessionId, session.Amount, termdealno, dealtime, mac1);
+        return Task.FromResult(new ConsumeResult(true, SwConstants.SuccessPrefix, "00"));
     }
 
         public void MapEndpoints(IEndpointRouteBuilder app) => TransitCardEndpoint.MapEndpoints(app);
