@@ -88,6 +88,11 @@ var app = builder.Build();
 var serviceState = app.Services.GetRequiredService<ServiceState>();
 serviceState.HttpPort = actualPort;
 
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
+    await next();
+});
 app.UseCors();
 app.UseAppLocalization();
 app.UseWebSockets(new WebSocketOptions

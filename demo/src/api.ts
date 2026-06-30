@@ -1,4 +1,4 @@
-const BASE = ''
+const BASE = new URLSearchParams(location.search).get('hub') || 'http://localhost:5000'
 
 let currentLang = 'en-US'
 
