@@ -78,7 +78,7 @@ builder.Services.AddHostedService<PingService>();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+        policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod());
 });
 
 builder.Services.AddAppLocalization();
