@@ -406,7 +406,7 @@ function wsConnect() {
   const filter = wsEventsFilter.value ? `?events=${encodeURIComponent(wsEventsFilter.value)}` : ''
   ws = new WebSocket(`ws://${location.host}/ws${filter}`)
   ws.onopen = () => { wsConnected.value = true; wsLog.value.unshift('[连接] 已建立') }
-  ws.onclose = (e) => { wsConnected.value = false; wsLog.value.unshift(`[断开] code=${e.code}`) }
+  ws.onclose = (e) => { wsConnected.value = false; wsLog.value.unshift(`[断开] code=${e.code}`); if (e.code !== 1000) setTimeout(wsConnect, 3000) }
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data)
