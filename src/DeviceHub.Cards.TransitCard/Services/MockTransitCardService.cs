@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DeviceHub.Cards.TransitCard.Services;
 
-public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegistrar
+public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegistrar, IDisposable
 {
     private readonly IPcscService _pcsc;
     private readonly ILogger<MockTransitCardService> _logger;
@@ -112,6 +112,12 @@ public class MockTransitCardService : ITransitCardService, IHardwareEndpointRegi
 
         _logger.LogInformation("Mock consume execute: session={Session} amount={Amount} termdealno={No} dealtime={Time} mac1={Mac}", sessionId, session.Amount, termdealno, dealtime, mac1);
         return Task.FromResult(new ConsumeResult(true, SwConstants.SuccessPrefix, "00"));
+    }
+
+    public void Dispose()
+    {
+        _sessions.Clear();
+        _consumeSessions.Clear();
     }
 
         public void MapEndpoints(IEndpointRouteBuilder app) => TransitCardEndpoint.MapEndpoints(app);

@@ -39,9 +39,9 @@ public class IdCardService : IIdCardService, IHardwareEndpointRegistrar
         {
             readers.Add(new ReaderInfo("IdCard Reader (Default)", false));
         }
-        catch
+        catch (Exception ex)
         {
-            readers.Add(new ReaderInfo("IdCard Reader (Default)", false));
+            _logger.LogWarning(ex, "Failed to enumerate identity card readers");
         }
 
         return Task.FromResult(readers);

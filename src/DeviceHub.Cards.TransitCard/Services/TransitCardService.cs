@@ -9,7 +9,7 @@ using System.Collections.Concurrent;
 
 namespace DeviceHub.Cards.TransitCard.Services;
 
-public class TransitCardService : ITransitCardService, IHardwareEndpointRegistrar
+public class TransitCardService : ITransitCardService, IHardwareEndpointRegistrar, IDisposable
 {
     private readonly IPcscService _pcsc;
     private readonly ILogger<TransitCardService> _logger;
@@ -40,7 +40,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         await SelectTransitApplet(name, ct);
         var cardNumBytes = await TransmitHex(name, ApduBuilder.GetCardNumber(), ct);
         if (!cardNumBytes.Success || cardNumBytes.Sw1 != SwConstants.SuccessPrefix)
-            throw new Exception($"读取卡号失败 (SW={cardNumBytes.Sw1}{cardNumBytes.Sw2})");
+            throw new Exception($"Read card info failed (SW={cardNumBytes.Sw1}{cardNumBytes.Sw2})");
         var cardNumber = ParseCardNumber(cardNumBytes.ResponseData);
         return new CardInfo(cardNumber, IssuerCode: null, CardType: null, ExpiryDate: null, OtherData: null);
     }
@@ -51,7 +51,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         await SelectTransitApplet(name, ct);
         var result = await TransmitHex(name, ApduBuilder.GetBalance(), ct);
         if (!result.Success || result.Sw1 != SwConstants.SuccessPrefix)
-            throw new Exception($"读取余额失败 (SW={result.Sw1}{result.Sw2})");
+            throw new Exception($"Read balance failed (SW={result.Sw1}{result.Sw2})");
         var balance = ParseBalance(result.ResponseData);
         return new BalanceInfo(balance);
     }
@@ -62,12 +62,26 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         await SelectTransitApplet(name, ct);
         var result = await TransmitHex(name, ApduBuilder.GetTransactionLog(), ct);
         if (!result.Success || result.Sw1 != SwConstants.SuccessPrefix)
-            throw new Exception($"读取交易记录失败 (SW={result.Sw1}{result.Sw2})");
+            throw new Exception($"Read transactions failed (SW={result.Sw1}{result.Sw2})");
         return ParseTransactions(result.ResponseData, count);
+    }
+
+    private static readonly TimeSpan SessionTtl = TimeSpan.FromMinutes(5);
+
+    private void CleanupExpiredSessions()
+    {
+        var cutoff = DateTime.UtcNow - SessionTtl;
+        foreach (var kv in _sessions)
+            if (kv.Value.Timestamp < cutoff)
+                _sessions.TryRemove(kv.Key, out _);
+        foreach (var kv in _consumeSessions)
+            if (kv.Value.Timestamp < cutoff)
+                _consumeSessions.TryRemove(kv.Key, out _);
     }
 
     public async Task<RechargeInitResult> RechargeInitAsync(int amount, string? readerName = null, CancellationToken ct = default)
     {
+        CleanupExpiredSessions();
         var name = await ResolveReaderName(readerName, ct);
         await SelectTransitApplet(name, ct);
 
@@ -79,7 +93,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         var initCmd = ApduBuilder.InitRecharge(ApduBuilder.DefaultHostChallenge);
         var initResult = await TransmitHex(name, initCmd, ct);
         if (!initResult.Success || initResult.Sw1 != SwConstants.SuccessPrefix)
-            throw new Exception($"充值初始化失败 (SW={initResult.Sw1}{initResult.Sw2})");
+            throw new Exception($"Recharge init failed (SW={initResult.Sw1}{initResult.Sw2})");
 
         _sessions[sessionId] = new RechargeSession
         {
@@ -108,6 +122,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
 
     public async Task<ConsumeInitResponse> ConsumeInitAsync(int dealflag, int keyindex, int amount, string termainno, string? readerName = null, CancellationToken ct = default)
     {
+        CleanupExpiredSessions();
         var name = await ResolveReaderName(readerName, ct);
         await SelectTransitApplet(name, ct);
 
@@ -117,7 +132,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         var initApdu = ApduBuilder.InitConsume(dealflag, keyindex, amountHex, termainno);
         var initResult = await TransmitHex(name, initApdu, ct);
         if (!initResult.Success || initResult.Sw1 != SwConstants.SuccessPrefix)
-            throw new Exception($"消费初始化失败 (SW={initResult.Sw1}{initResult.Sw2})");
+            throw new Exception($"Consume init failed (SW={initResult.Sw1}{initResult.Sw2})");
 
         _consumeSessions[sessionId] = new ConsumeSession { ReaderName = name, Timestamp = DateTime.UtcNow };
 
@@ -126,6 +141,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
 
     public async Task<ConsumeInitResponse> ConsumeCappInitAsync(int dealflag, int keyindex, int amount, string termainno, string? readerName = null, CancellationToken ct = default)
     {
+        CleanupExpiredSessions();
         var name = await ResolveReaderName(readerName, ct);
         await SelectTransitApplet(name, ct);
 
@@ -135,7 +151,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         var initApdu = ApduBuilder.InitCappConsume(dealflag, keyindex, amountHex, termainno);
         var initResult = await TransmitHex(name, initApdu, ct);
         if (!initResult.Success || initResult.Sw1 != SwConstants.SuccessPrefix)
-            throw new Exception($"复合消费初始化失败 (SW={initResult.Sw1}{initResult.Sw2})");
+            throw new Exception($"CAPP consume init failed (SW={initResult.Sw1}{initResult.Sw2})");
 
         _consumeSessions[sessionId] = new ConsumeSession { ReaderName = name, Timestamp = DateTime.UtcNow };
 
@@ -160,7 +176,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
 
         var available = await GetAvailableReadersAsync(ct);
         if (available.Length == 0)
-            throw new InvalidOperationException("No card present in any reader");
+            throw new InvalidOperationException("No transit card found on this reader");
 
         return available[0];
     }
@@ -171,7 +187,7 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         if (!result.Success || result.Sw1 != SwConstants.SuccessPrefix)
         {
             _logger.LogWarning("SELECT AID failed for {Reader}: SW={Sw1}{Sw2}", readerName, result.Sw1, result.Sw2);
-            throw new InvalidOperationException($"SELECT 交通卡应用失败 (SW={result.Sw1}{result.Sw2})");
+            throw new InvalidOperationException($"SELECT transit card applet failed (SW={result.Sw1}{result.Sw2})");
         }
     }
 
@@ -216,6 +232,12 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         }
 
         return records;
+    }
+
+    public void Dispose()
+    {
+        _sessions.Clear();
+        _consumeSessions.Clear();
     }
 
             public void MapEndpoints(IEndpointRouteBuilder app) => TransitCardEndpoint.MapEndpoints(app);

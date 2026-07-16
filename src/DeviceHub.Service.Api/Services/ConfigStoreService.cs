@@ -41,19 +41,11 @@ public class ConfigStoreService : IDisposable
         }
     }
 
-    private async Task SaveAsync()
+    private async Task SaveCoreAsync()
     {
-        await _writeLock.WaitAsync();
-        try
-        {
-            var dict = _store.ToDictionary(kv => kv.Key, kv => kv.Value);
-            var json = JsonSerializer.Serialize(dict, _jsonOptions);
-            await File.WriteAllTextAsync(_filePath, json);
-        }
-        finally
-        {
-            _writeLock.Release();
-        }
+        var dict = _store.ToDictionary(kv => kv.Key, kv => kv.Value);
+        var json = JsonSerializer.Serialize(dict, _jsonOptions);
+        await File.WriteAllTextAsync(_filePath, json);
     }
 
     public Task<string?> GetAsync(string key)
@@ -72,21 +64,45 @@ public class ConfigStoreService : IDisposable
 
     public async Task SetAsync(string key, string value)
     {
-        _store[key] = value;
-        await SaveAsync();
+        await _writeLock.WaitAsync();
+        try
+        {
+            _store[key] = value;
+            await SaveCoreAsync();
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
     }
 
     public async Task<bool> DeleteAsync(string key)
     {
-        if (!_store.TryRemove(key, out _)) return false;
-        await SaveAsync();
-        return true;
+        await _writeLock.WaitAsync();
+        try
+        {
+            if (!_store.TryRemove(key, out _)) return false;
+            await SaveCoreAsync();
+            return true;
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
     }
 
     public async Task ClearAsync()
     {
-        _store.Clear();
-        await SaveAsync();
+        await _writeLock.WaitAsync();
+        try
+        {
+            _store.Clear();
+            await SaveCoreAsync();
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
     }
 
     public void Dispose()

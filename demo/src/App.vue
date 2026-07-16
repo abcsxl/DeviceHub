@@ -406,8 +406,8 @@ function wsConnect() {
   const filter = wsEventsFilter.value ? `?events=${encodeURIComponent(wsEventsFilter.value)}` : ''
   const wsBase = new URLSearchParams(location.search).get('hub') || 'http://localhost:5000'
   ws = new WebSocket(`${wsBase.replace('http', 'ws')}/ws${filter}`)
-  ws.onopen = () => { wsConnected.value = true; wsLog.value.unshift('[连接] 已建立') }
-  ws.onclose = (e) => { wsConnected.value = false; wsLog.value.unshift(`[断开] code=${e.code}`); if (e.code !== 1000) setTimeout(wsConnect, 3000) }
+  ws.onopen = () => { wsConnected.value = true; wsLog.value.unshift('[连接] 已建立'); window.wsRetryCount = 0; }
+  ws.onclose = (e) => { wsConnected.value = false; wsLog.value.unshift(`[断开] code=${e.code}`); if (e.code !== 1000) { if (typeof window.wsRetryCount === 'undefined') window.wsRetryCount = 0; window.wsRetryCount++; const delay = Math.min(1000 * Math.pow(2, window.wsRetryCount), 30000); if (window.wsRetryCount <= 10) { setTimeout(wsConnect, delay); } } }
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data)
@@ -823,21 +823,15 @@ function wsSend() {
 
         <div class="filter-row" style="margin-bottom:6px">
           <label style="flex:1">事件订阅 <code>?events=</code>
-            <input v-model="wsEventsFilter" placeholder="留空不收；* 收全部；逗号分隔指定多个，如 pcsc.card_status_changed,printer.job_completed" style="width:100%" />
+            <input v-model="wsEventsFilter" placeholder="留空不收；* 收全部；逗号分隔指定多个，如 card_status_changed" style="width:100%" />
           </label>
         </div>
         <details style="font-size:0.85em;color:#666;margin-bottom:8px">
           <summary>可用事件类型</summary>
           <div style="margin-top:4px;display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">
-            <code>pcsc.card_status_changed</code><span>卡片插拔</span>
-            <code>pcsc.reader_arrival</code><span>读卡器接入</span>
-            <code>pcsc.reader_removal</code><span>读卡器移除</span>
-            <code>printer.job_completed</code><span>打印完成</span>
-            <code>printer.job_error</code><span>打印错误</span>
-            <code>id-card.card_inserted</code><span>身份证插入</span>
-            <code>id-card.card_removed</code><span>身份证移除</span>
+            <code>card_status_changed</code><span>卡片状态变更</span>
           </div>
-          <div style="margin-top:4px">多个用逗号分隔，如 <code>pcsc.card_status_changed,printer.job_completed</code></div>
+          <div style="margin-top:4px">多个用逗号分隔，如 <code>card_status_changed</code></div>
         </details>
 
         <div class="section-header" style="margin-bottom:8px">

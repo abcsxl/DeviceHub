@@ -16,7 +16,7 @@ internal static class PrinterEndpoint
         {
             var service = context.RequestServices.GetService<IPrinterService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Printer service not available" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Printer not registered" }, statusCode: 503);
 
             var printers = await service.GetPrintersAsync();
             return Results.Ok(new { printers });
@@ -26,7 +26,7 @@ internal static class PrinterEndpoint
         {
             var service = context.RequestServices.GetService<IPrinterService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Printer service not available" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Printer not registered" }, statusCode: 503);
 
             if (string.IsNullOrEmpty(req.Text))
                 return Results.Json(new { error = "INVALID_PARAMETERS", message = "text is required" }, statusCode: 400);
@@ -42,10 +42,10 @@ internal static class PrinterEndpoint
         {
             var service = context.RequestServices.GetService<IPrinterService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Printer service not available" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Printer not registered" }, statusCode: 503);
 
-            if (string.IsNullOrEmpty(req.Data))
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "data (hex) is required" }, statusCode: 400);
+            if (string.IsNullOrEmpty(req.Data) || req.Data.Length % 2 != 0)
+                return Results.Json(new { error = "INVALID_DATA", message = "Data must be a valid hex string" }, statusCode: 400);
 
             var data = Convert.FromHexString(req.Data);
             var ok = await service.PrintRawAsync(data, req.PrinterName);

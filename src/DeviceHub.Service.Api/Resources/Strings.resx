@@ -64,7 +64,7 @@
     <value>Configuration validation failed</value>
   </data>
   <data name="NoDefaultConfig" xml:space="preserve">
-    <value>No default configuration available</value>
+    <value>Default reader not configured</value>
   </data>
 
   <!-- Transit Card Endpoints -->
@@ -101,6 +101,11 @@
   </data>
   <data name="ApduMustBeHexString" xml:space="preserve">
     <value>apdu must be a hex string</value>
+  </data>
+
+  <!-- Config Store Endpoints -->
+  <data name="ConfigKeyNotFound" xml:space="preserve">
+    <value>Key '{0}' not found</value>
   </data>
 
   <!-- Service Endpoints -->

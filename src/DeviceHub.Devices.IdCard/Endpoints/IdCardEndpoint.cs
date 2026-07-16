@@ -16,7 +16,7 @@ internal static class IdCardEndpoint
         {
             var service = context.RequestServices.GetService<IIdCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "IdCard service not available" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "IdCard not registered" }, statusCode: 503);
 
             var readers = await service.GetReadersAsync();
             return Results.Ok(new { readers });
@@ -26,7 +26,7 @@ internal static class IdCardEndpoint
         {
             var service = context.RequestServices.GetService<IIdCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "IdCard service not available" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "IdCard not registered" }, statusCode: 503);
 
             var info = await service.ReadCardAsync(req.ReaderName);
             if (info == null)
@@ -39,7 +39,7 @@ internal static class IdCardEndpoint
         {
             var service = context.RequestServices.GetService<IIdCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "IdCard service not available" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "IdCard not registered" }, statusCode: 503);
 
             var photo = await service.ReadPhotoAsync(req.ReaderName);
             if (photo == null)

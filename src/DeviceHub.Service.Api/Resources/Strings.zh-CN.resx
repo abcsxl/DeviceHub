@@ -64,7 +64,7 @@
     <value>配置验证失败</value>
   </data>
   <data name="NoDefaultConfig" xml:space="preserve">
-    <value>无默认配置可用</value>
+    <value>默认读卡器未配置</value>
   </data>
 
   <!-- Transit Card Endpoints -->
@@ -101,6 +101,11 @@
   </data>
   <data name="ApduMustBeHexString" xml:space="preserve">
     <value>apdu 必须是十六进制字符串</value>
+  </data>
+
+  <!-- Config Store Endpoints -->
+  <data name="ConfigKeyNotFound" xml:space="preserve">
+    <value>键 '{0}' 未找到</value>
   </data>
 
   <!-- Service Endpoints -->
