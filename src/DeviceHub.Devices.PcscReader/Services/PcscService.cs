@@ -231,17 +231,26 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
         if (rc != Success || charsLen == 0)
             return [];
 
-        // With ExactSpelling=true, SCardListReaders = W version (UTF-16),
-        // pcchReaders is in WCHARs, not bytes
-        var buf = new byte[charsLen * 2];
-        rc = NativeMethods.ListReaders(_context, buf, ref charsLen);
-
-        if (rc != Success)
-            return [];
-
-        // charsLen now = total WCHARs written (including double null terminator)
-        var str = Encoding.Unicode.GetString(buf, 0, (int)charsLen * 2);
-        return str.Split('\0', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (OperatingSystem.IsWindows())
+        {
+            // SCardListReadersW — pcchReaders is in WCHARs (UTF-16)
+            var buf = new byte[charsLen * 2];
+            rc = NativeMethods.ListReaders(_context, buf, ref charsLen);
+            if (rc != Success)
+                return [];
+            var str = Encoding.Unicode.GetString(buf, 0, (int)charsLen * 2);
+            return str.Split('\0', StringSplitOptions.RemoveEmptyEntries).ToList();
+        }
+        else
+        {
+            // SCardListReaders (ANSI/UTF-8) — pcchReaders is in bytes
+            var buf = new byte[charsLen];
+            rc = NativeMethods.ListReaders(_context, buf, ref charsLen);
+            if (rc != Success)
+                return [];
+            var str = Encoding.UTF8.GetString(buf, 0, (int)charsLen);
+            return str.Split('\0', StringSplitOptions.RemoveEmptyEntries).ToList();
+        }
     }
 
     private ReaderInfo GetReaderInfoInternal(string readerName)
@@ -345,20 +354,8 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 
     private static byte[]? HexToBytes(string hex)
     {
-        if (string.IsNullOrEmpty(hex) || hex.Length % 2 != 0)
-            return null;
-
-        try
-        {
-            var bytes = new byte[hex.Length / 2];
-            for (var i = 0; i < bytes.Length; i++)
-                bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
-            return bytes;
-        }
-        catch
-        {
-            return null;
-        }
+        try { return Convert.FromHexString(hex); }
+        catch { throw new ArgumentException($"Invalid hex string: {hex}"); }
     }
 
     private static string BytesToHex(byte[] bytes)

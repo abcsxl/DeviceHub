@@ -12,7 +12,7 @@ public static class ServiceEndpoint
             IStringLocalizer<Program> L) =>
         {
             var logger = loggerFactory.CreateLogger("Service");
-            logger.LogWarning("服务即将重启");
+            logger.LogWarning("Service is about to restart");
             _ = Task.Run(async () =>
             {
                 await Task.Delay(1000);

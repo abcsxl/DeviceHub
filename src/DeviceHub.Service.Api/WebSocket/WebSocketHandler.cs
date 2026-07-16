@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using DeviceHub.Devices.Contracts;
 using DeviceHub.Cards.TransitCard;
+using DeviceHub.Cards.TransitCard.Models.Responses;
 using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.WebSocket;
@@ -193,7 +194,7 @@ public sealed class WebSocketHandler : IDisposable
             if (root.TryGetProperty("type", out var typeEl) && typeEl.GetString() == "pong")
             {
                 if (_connections.TryGetValue(connectionId, out var entry))
-                    _connections.TryUpdate(connectionId, new ConnectionEntry(entry.Socket, DateTime.UtcNow, entry.SubscribedEvents), entry);
+                    _connections[connectionId] = new ConnectionEntry(entry.Socket, DateTime.UtcNow, entry.SubscribedEvents);
                 return;
             }
 
@@ -318,7 +319,13 @@ public sealed class WebSocketHandler : IDisposable
                     await SendErrorAsync(ws, requestId, errorCode, msg);
                     return;
                 }
-                data = new { sw1 = result.Sw1, sw2 = result.Sw2, responseData = result.ResponseData, success = result.Success };
+                if (result.Sw1 != "90")
+                {
+                    var msg = $"Transmit failed (SW={result.Sw1}{result.Sw2})";
+                    await SendErrorAsync(ws, requestId, "HARDWARE_ERROR", msg);
+                    return;
+                }
+                data = new { sw1 = result.Sw1, sw2 = result.Sw2, responseData = result.ResponseData, success = true };
                 break;
             }
 
@@ -414,6 +421,13 @@ public sealed class WebSocketHandler : IDisposable
                         return;
                     }
                     var execResult = await transitCard.RechargeExecuteAsync(sessionId, macSignature);
+                    if (execResult is RechargeResult r && !r.Success)
+                    {
+                        var msg = r.ErrorMessage ?? "Recharge execution failed";
+                        if (r.Sw1 != null) msg += $" (SW={r.Sw1}{r.Sw2})";
+                        await SendErrorAsync(ws, requestId, "HARDWARE_ERROR", msg);
+                        return;
+                    }
                     data = execResult;
                     break;
                 }
@@ -477,6 +491,13 @@ public sealed class WebSocketHandler : IDisposable
                     }
                     var termdealno = int.TryParse(termdealnoStr, out var tdn) ? tdn : 0;
                     var execResult = await transitCard.ConsumeExecuteAsync(sessionId, termdealno, dealtime, mac1);
+                    if (execResult is ConsumeResult cr && !cr.Success)
+                    {
+                        var msg = cr.ErrorMessage ?? "Consume execution failed";
+                        if (cr.Sw1 != null) msg += $" (SW={cr.Sw1}{cr.Sw2})";
+                        await SendErrorAsync(ws, requestId, "HARDWARE_ERROR", msg);
+                        return;
+                    }
                     data = execResult;
                     break;
                 }
@@ -718,10 +739,12 @@ public sealed class WebSocketHandler : IDisposable
                 if (entry.Socket.State == WebSocketState.Open)
                 {
                     var ws = entry.Socket;
-                    _ = ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Server shutting down", CancellationToken.None)
+                    var closeCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    _ = ws.CloseOutputAsync(WebSocketCloseStatus.EndpointUnavailable, "Server shutting down", closeCts.Token)
                         .ContinueWith(t =>
                         {
                             try { ws.Dispose(); } catch { }
+                            closeCts.Dispose();
                         }, TaskContinuationOptions.ExecuteSynchronously);
                 }
                 else

@@ -81,7 +81,7 @@ public static class ConfigEndpoint
         {
             if (_defaultConfigJson == null)
                 return Results.Json(
-                    new { error = "HARDWARE_ERROR", message = L["NoDefaultConfig"].Value },
+                    new { error = "NO_DEFAULT_CONFIG", message = L["NoDefaultConfig"].Value },
                     statusCode: 500);
 
             var logger = loggerFactory.CreateLogger("Config");

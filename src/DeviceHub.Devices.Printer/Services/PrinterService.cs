@@ -13,23 +13,24 @@ namespace DeviceHub.Devices.Printer.Services;
 public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
 {
     private readonly ILogger<PrinterService> _logger;
+    private readonly object _statusLock = new();
     private HardwareStatus _status = HardwareStatus.Stopped;
 
     public string Name => "Printer";
-    public HardwareStatus Status => _status;
+    public HardwareStatus Status { get { lock (_statusLock) { return _status; } } }
 
     public PrinterService(ILogger<PrinterService> logger) => _logger = logger;
 
     public Task InitAsync(CancellationToken ct = default)
     {
-        _status = HardwareStatus.Running;
+        lock (_statusLock) { _status = HardwareStatus.Running; }
         _logger.LogInformation("Printer service started");
         return Task.CompletedTask;
     }
 
     public Task ShutdownAsync(CancellationToken ct = default)
     {
-        _status = HardwareStatus.Stopped;
+        lock (_statusLock) { _status = HardwareStatus.Stopped; }
         _logger.LogInformation("Printer service stopped");
         return Task.CompletedTask;
     }
@@ -185,7 +186,7 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
 
     private static async Task<bool> LinuxPrintText(string text, string printerName, CancellationToken ct)
     {
-        var data = Encoding.Default.GetBytes(text);
+        var data = Encoding.UTF8.GetBytes(text);
         return await LinuxRawPrint(printerName, data, ct);
     }
 
@@ -247,7 +248,8 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                UseShellExecute = false
+                UseShellExecute = false,
+                ArgumentList = { "-d", printerName, "-o", "raw", tempFile }
             };
             using var process = Process.Start(psi);
             if (process == null) return false;

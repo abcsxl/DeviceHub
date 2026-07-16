@@ -16,7 +16,7 @@ internal static class PcscEndpoint
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC driver is not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC not registered" }, statusCode: 503);
 
             var readers = await service.ListReadersAsync();
             return Results.Ok(new { readers });
@@ -26,7 +26,7 @@ internal static class PcscEndpoint
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC driver is not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC not registered" }, statusCode: 503);
 
             var readers = await service.ListReadersAsync();
             if (readers.All(r => r.Name != name))
@@ -43,7 +43,7 @@ internal static class PcscEndpoint
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC driver is not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC not registered" }, statusCode: 503);
 
             var atr = await service.GetAtrAsync(name);
             return atr != null
@@ -55,7 +55,7 @@ internal static class PcscEndpoint
         {
             var service = context.RequestServices.GetService<IPcscService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC driver is not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC not registered" }, statusCode: 503);
 
             if (string.IsNullOrEmpty(request.ReaderName) || string.IsNullOrEmpty(request.Apdu))
                 return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = "readerName and apdu are required" });
@@ -79,6 +79,9 @@ internal static class PcscEndpoint
                     msg += $" (SW={result.Sw1}{result.Sw2})";
                 return Results.Json(new { error = code, message = msg, sw1 = result.Sw1, sw2 = result.Sw2 }, statusCode: status);
             }
+
+            if (result.Sw1 != "90" || result.Sw2 != "00")
+                return Results.Json(new { error = "HARDWARE_ERROR", message = $"Card returned error (SW={result.Sw1}{result.Sw2})" }, statusCode: 500);
 
             return Results.Ok(new
             {

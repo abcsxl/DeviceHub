@@ -18,7 +18,7 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             var readers = await service.GetAvailableReadersAsync();
             return Results.Ok(new { readers });
@@ -28,13 +28,13 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             try
             {
                 var atr = await service.ResetCardAsync(readerName);
                 if (atr == null)
-                    return Results.Json(new { error = "CARD_NOT_PRESENT", message = "复位失败，卡片未找到" }, statusCode: 404);
+                    return Results.Json(new { error = "CARD_NOT_PRESENT", message = "Reset failed, card not found" }, statusCode: 404);
                 return Results.Ok(new { atr });
             }
             catch (InvalidOperationException ex)
@@ -51,7 +51,7 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             try
             {
@@ -72,7 +72,7 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             try
             {
@@ -93,7 +93,7 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             try
             {
@@ -114,7 +114,7 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             if (req.Amount <= 0)
                 return Results.Json(new { error = "INVALID_PARAMETERS", message = "Recharge amount must be greater than 0" }, statusCode: 400);
@@ -138,7 +138,7 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             if (string.IsNullOrEmpty(req.SessionId) || string.IsNullOrEmpty(req.MacSignature))
                 return Results.Json(new { error = "INVALID_PARAMETERS", message = "sessionId and macSignature are required" }, statusCode: 400);
@@ -154,7 +154,7 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             if (req.Dealflag < 1 || req.Dealflag > 2)
                 return Results.Json(new { error = "INVALID_PARAMETERS", message = "dealflag must be 1 or 2" }, statusCode: 400);
@@ -184,7 +184,7 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             if (req.Dealflag < 1 || req.Dealflag > 2)
                 return Results.Json(new { error = "INVALID_PARAMETERS", message = "dealflag must be 1 or 2" }, statusCode: 400);
@@ -214,7 +214,7 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Transit card service not registered" }, statusCode: 503);
+                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
 
             if (string.IsNullOrEmpty(req.SessionId))
                 return Results.Json(new { error = "INVALID_PARAMETERS", message = "sessionId is required" }, statusCode: 400);

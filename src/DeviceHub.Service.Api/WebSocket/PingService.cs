@@ -26,7 +26,7 @@ public sealed class PingService : BackgroundService
         {
             await Task.Delay(PingInterval, stoppingToken);
 
-            foreach (var (id, ws) in _wsHandler.ActiveConnections)
+            foreach (var (id, ws) in _wsHandler.ActiveConnections.ToArray())
             {
                 if (ws.State != WebSocketState.Open)
                 {

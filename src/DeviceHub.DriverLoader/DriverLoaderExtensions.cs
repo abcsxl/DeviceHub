@@ -56,7 +56,7 @@ public static class DriverLoaderExtensions
 
                     if (typeof(IHardwareWebSocketHandler).IsAssignableFrom(type))
                     {
-                        services.AddSingleton(typeof(IHardwareWebSocketHandler), type);
+                        services.AddSingleton(typeof(IHardwareWebSocketHandler), sp => sp.GetRequiredService(type));
                         logger?.LogInformation("External driver registered WebSocket handler: {Type}", type.Name);
                     }
                 }
