@@ -321,6 +321,7 @@ const wsConnected = ref(false)
 const wsLog = ref<string[]>([])
 const wsParams = ref('{}')
 let ws: WebSocket | null = null
+let wsRetryCount = 0
 
 interface WsActionDef {
   label: string
@@ -406,8 +407,8 @@ function wsConnect() {
   const filter = wsEventsFilter.value ? `?events=${encodeURIComponent(wsEventsFilter.value)}` : ''
   const wsBase = new URLSearchParams(location.search).get('hub') || 'http://localhost:5000'
   ws = new WebSocket(`${wsBase.replace('http', 'ws')}/ws${filter}`)
-  ws.onopen = () => { wsConnected.value = true; wsLog.value.unshift('[连接] 已建立'); window.wsRetryCount = 0; }
-  ws.onclose = (e) => { wsConnected.value = false; wsLog.value.unshift(`[断开] code=${e.code}`); if (e.code !== 1000) { if (typeof window.wsRetryCount === 'undefined') window.wsRetryCount = 0; window.wsRetryCount++; const delay = Math.min(1000 * Math.pow(2, window.wsRetryCount), 30000); if (window.wsRetryCount <= 10) { setTimeout(wsConnect, delay); } } }
+  ws.onopen = () => { wsConnected.value = true; wsLog.value.unshift('[连接] 已建立'); wsRetryCount = 0; }
+  ws.onclose = (e) => { wsConnected.value = false; wsLog.value.unshift(`[断开] code=${e.code}`); if (e.code !== 1000) { wsRetryCount++; const delay = Math.min(1000 * Math.pow(2, wsRetryCount), 30000); if (wsRetryCount <= 10) { setTimeout(wsConnect, delay); } } }
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data)
