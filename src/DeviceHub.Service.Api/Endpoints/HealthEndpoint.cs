@@ -1,3 +1,5 @@
+using DeviceHub.Devices.Contracts.Helpers;
+
 namespace DeviceHub.Service.Api.Endpoints;
 
 public static class HealthEndpoint
@@ -6,7 +8,7 @@ public static class HealthEndpoint
     {
         app.MapGet("/api/health", () =>
         {
-            return Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
+            return ApiResponseHelper.Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
         });
         return app;
     }

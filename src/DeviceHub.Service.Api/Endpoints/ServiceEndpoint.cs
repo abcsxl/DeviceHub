@@ -1,3 +1,4 @@
+using DeviceHub.Devices.Contracts.Helpers;
 using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
@@ -18,7 +19,7 @@ public static class ServiceEndpoint
                 await Task.Delay(1000);
                 lifetime.StopApplication();
             });
-            return Results.Accepted((string?)null, new { message = L["ServiceRestarting"].Value });
+            return ApiResponseHelper.Accepted(new { message = L["ServiceRestarting"].Value });
         });
         return app;
     }

@@ -1,4 +1,6 @@
-namespace DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
+
+namespace DeviceHub.Devices.Contracts.Abstractions;
 
 public abstract class HardwareDriverBase : IHardwareService
 {

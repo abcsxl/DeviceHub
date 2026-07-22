@@ -1,4 +1,7 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
+using DeviceHub.Devices.Contracts.Extensions;
+using DeviceHub.Devices.Contracts.Helpers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -14,54 +17,46 @@ internal static class PcscEndpoint
 
         group.MapGet("/readers", async (HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IPcscService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IPcscService>(out var service) is IResult err) return err;
 
             var readers = await service.ListReadersAsync();
-            return Results.Ok(new { readers });
+            return ApiResponseHelper.Ok(new { readers });
         });
 
         group.MapGet("/readers/{name}", async (string name, HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IPcscService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IPcscService>(out var service) is IResult err) return err;
 
             var readers = await service.ListReadersAsync();
             if (readers.All(r => r.Name != name))
-                return Results.NotFound(new { error = "READER_NOT_FOUND", message = $"Reader not found: {name}" });
+                return ApiResponseHelper.NotFound("READER_NOT_FOUND", $"Reader not found: {name}");
 
             var info = await service.GetReaderInfoAsync(name);
             if (!info.IsCardPresent)
-                return Results.NotFound(new { error = "CARD_NOT_PRESENT", message = "No card present in reader" });
+                return ApiResponseHelper.NotFound("CARD_NOT_PRESENT", "No card present in reader");
 
-            return Results.Ok(info);
+            return ApiResponseHelper.Ok(info);
         });
 
         group.MapGet("/readers/{name}/atr", async (string name, HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IPcscService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IPcscService>(out var service) is IResult err) return err;
 
             var atr = await service.GetAtrAsync(name);
             return atr != null
-                ? Results.Ok(new { atr })
-                : Results.NotFound(new { error = "CARD_NOT_PRESENT", message = "No card present in reader" });
+                ? ApiResponseHelper.Ok(new { atr })
+                : ApiResponseHelper.NotFound("CARD_NOT_PRESENT", "No card present in reader");
         });
 
         group.MapPost("/transmit", async (TransmitRequest request, HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IPcscService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "PCSC not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IPcscService>(out var service) is IResult err) return err;
 
             if (string.IsNullOrEmpty(request.ReaderName) || string.IsNullOrEmpty(request.Apdu))
-                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = "readerName and apdu are required" });
+                return ApiResponseHelper.BadRequest("INVALID_PARAMETERS", "readerName and apdu are required");
 
             if (request.Apdu.Length % 2 != 0)
-                return Results.BadRequest(new { error = "INVALID_PARAMETERS", message = "apdu must be a hex string" });
+                return ApiResponseHelper.BadRequest("INVALID_PARAMETERS", "apdu must be a hex string");
 
             var result = await service.TransmitAsync(request.ReaderName, request.Apdu);
             if (!result.Success)
@@ -77,18 +72,20 @@ internal static class PcscEndpoint
                 var msg = result.ErrorMessage;
                 if (result.Sw1 != null)
                     msg += $" (SW={result.Sw1}{result.Sw2})";
-                return Results.Json(new { error = code, message = msg, sw1 = result.Sw1, sw2 = result.Sw2 }, statusCode: status);
+                return ApiResponseHelper.Error(code, msg, status);
             }
 
             if (result.Sw1 != "90" || result.Sw2 != "00")
-                return Results.Json(new { error = "HARDWARE_ERROR", message = $"Card returned error (SW={result.Sw1}{result.Sw2})" }, statusCode: 500);
+            {
+                var (code, status) = SwCodeHelper.ClassifySw(result.Sw1!, result.Sw2!);
+                return ApiResponseHelper.Error(code, $"Card returned error (SW={result.Sw1}{result.Sw2})", status);
+            }
 
-            return Results.Ok(new
+            return ApiResponseHelper.Ok(new
             {
                 sw1 = result.Sw1,
                 sw2 = result.Sw2,
-                responseData = result.ResponseData,
-                success = result.Success
+                responseData = result.ResponseData
             });
         });
     }

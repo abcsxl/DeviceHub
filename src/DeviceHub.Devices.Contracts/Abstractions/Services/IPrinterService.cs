@@ -1,4 +1,6 @@
-namespace DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts;
+
+namespace DeviceHub.Devices.Contracts.Abstractions.Services;
 
 /// <summary>打印机服务接口。</summary>
 public interface IPrinterService : IHardwareService

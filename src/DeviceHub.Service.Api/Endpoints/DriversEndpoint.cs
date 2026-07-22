@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using DeviceHub.Devices.Contracts.Helpers;
 using DeviceHub.Service.Api.Models;
 using Microsoft.Extensions.Localization;
 
@@ -12,7 +13,7 @@ public static class DriversEndpoint
     {
         app.MapGet("/api/drivers", (DriverRegistry registry) =>
         {
-            return Results.Ok(registry.GetAll());
+            return ApiResponseHelper.Ok(registry.GetAll());
         });
 
         app.MapPost("/api/drivers/{name}/enable", async (
@@ -26,21 +27,21 @@ public static class DriversEndpoint
             var logger = loggerFactory.CreateLogger("Drivers");
             var entry = registry.Get(name);
             if (entry == null)
-                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name].Value });
+                return ApiResponseHelper.NotFound("DRIVER_NOT_FOUND", L["DriverNotFound", name].Value);
 
             entry.Enabled = true;
             try
             {
                 await entry.Service.InitAsync();
             }
-            catch
+            catch (Exception ex)
             {
                 entry.Enabled = false;
-                throw;
+                return ApiResponseHelper.Error("HARDWARE_ERROR", ex.Message);
             }
             await PersistDriverEnabled(env, config, name, true);
             logger.LogInformation("Driver {Name} enabled", name);
-            return Results.Ok(new { name, status = entry.Service.Status.ToString(), enabled = true });
+            return ApiResponseHelper.Ok(new { name, status = entry.Service.Status.ToString(), enabled = true });
         });
 
         app.MapPost("/api/drivers/{name}/disable", async (
@@ -54,21 +55,21 @@ public static class DriversEndpoint
             var logger = loggerFactory.CreateLogger("Drivers");
             var entry = registry.Get(name);
             if (entry == null)
-                return Results.NotFound(new { error = "DRIVER_NOT_FOUND", message = L["DriverNotFound", name].Value });
+                return ApiResponseHelper.NotFound("DRIVER_NOT_FOUND", L["DriverNotFound", name].Value);
 
             entry.Enabled = false;
             try
             {
                 await entry.Service.ShutdownAsync();
             }
-            catch
+            catch (Exception ex)
             {
                 entry.Enabled = true;
-                throw;
+                return ApiResponseHelper.Error("HARDWARE_ERROR", ex.Message);
             }
             await PersistDriverEnabled(env, config, name, false);
             logger.LogInformation("Driver {Name} disabled", name);
-            return Results.Ok(new { name, status = entry.Service.Status.ToString(), enabled = false });
+            return ApiResponseHelper.Ok(new { name, status = entry.Service.Status.ToString(), enabled = false });
         });
         return app;
     }

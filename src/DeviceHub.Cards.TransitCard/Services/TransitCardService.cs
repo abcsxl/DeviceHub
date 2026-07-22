@@ -3,6 +3,9 @@ using DeviceHub.Cards.TransitCard.Endpoints;
 using DeviceHub.Cards.TransitCard.Helpers;
 using DeviceHub.Cards.TransitCard.Models.Responses;
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
+
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;

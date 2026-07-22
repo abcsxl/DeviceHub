@@ -1,4 +1,7 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
+using DeviceHub.Devices.Contracts.Extensions;
+using DeviceHub.Devices.Contracts.Helpers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -14,45 +17,39 @@ internal static class PrinterEndpoint
 
         group.MapGet("/printers", async (HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IPrinterService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Printer not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IPrinterService>(out var service) is IResult err) return err;
 
             var printers = await service.GetPrintersAsync();
-            return Results.Ok(new { printers });
+            return ApiResponseHelper.Ok(new { printers });
         });
 
         group.MapPost("/print", async (PrintRequest req, HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IPrinterService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Printer not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IPrinterService>(out var service) is IResult err) return err;
 
             if (string.IsNullOrEmpty(req.Text))
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "text is required" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "text is required", 400);
 
             var ok = await service.PrintTextAsync(req.Text, req.PrinterName);
             if (!ok)
-                return Results.Json(new { error = "PRINT_FAILED", message = "Print failed" }, statusCode: 500);
+                return ApiResponseHelper.Error("PRINT_FAILED", "Print failed", 500);
 
-            return Results.Ok(new { success = true });
+            return ApiResponseHelper.Ok();
         });
 
         group.MapPost("/print-raw", async (PrintRawRequest req, HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IPrinterService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "Printer not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IPrinterService>(out var service) is IResult err) return err;
 
             if (string.IsNullOrEmpty(req.Data) || req.Data.Length % 2 != 0)
-                return Results.Json(new { error = "INVALID_DATA", message = "Data must be a valid hex string" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_DATA", "Data must be a valid hex string", 400);
 
             var data = Convert.FromHexString(req.Data);
             var ok = await service.PrintRawAsync(data, req.PrinterName);
             if (!ok)
-                return Results.Json(new { error = "PRINT_FAILED", message = "Print failed" }, statusCode: 500);
+                return ApiResponseHelper.Error("PRINT_FAILED", "Print failed", 500);
 
-            return Results.Ok(new { success = true });
+            return ApiResponseHelper.Ok();
         });
     }
 

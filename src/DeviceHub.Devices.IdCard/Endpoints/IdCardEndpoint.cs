@@ -1,4 +1,7 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
+using DeviceHub.Devices.Contracts.Extensions;
+using DeviceHub.Devices.Contracts.Helpers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -14,36 +17,30 @@ internal static class IdCardEndpoint
 
         group.MapGet("/readers", async (HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IIdCardService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "IdCard not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IIdCardService>(out var service) is IResult err) return err;
 
             var readers = await service.GetReadersAsync();
-            return Results.Ok(new { readers });
+            return ApiResponseHelper.Ok(new { readers });
         });
 
         group.MapPost("/read", async (ReadRequest req, HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IIdCardService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "IdCard not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IIdCardService>(out var service) is IResult err) return err;
 
             var info = await service.ReadCardAsync(req.ReaderName);
             if (info == null)
-                return Results.Json(new { error = "CARD_NOT_FOUND", message = "No ID card detected" }, statusCode: 404);
+                return ApiResponseHelper.Error("CARD_NOT_FOUND", "No ID card detected", 404);
 
-            return Results.Ok(info);
+            return ApiResponseHelper.Ok(info);
         });
 
         group.MapPost("/read-photo", async (ReadRequest req, HttpContext context) =>
         {
-            var service = context.RequestServices.GetService<IIdCardService>();
-            if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "IdCard not registered" }, statusCode: 503);
+            if (context.RequestServices.CheckHardwareService<IIdCardService>(out var service) is IResult err) return err;
 
             var photo = await service.ReadPhotoAsync(req.ReaderName);
             if (photo == null)
-                return Results.Json(new { error = "PHOTO_NOT_FOUND", message = "No photo data" }, statusCode: 404);
+                return ApiResponseHelper.Error("PHOTO_NOT_FOUND", "No photo data", 404);
 
             return Results.File(photo, "image/jpeg");
         });

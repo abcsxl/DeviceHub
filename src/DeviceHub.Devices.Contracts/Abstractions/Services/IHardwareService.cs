@@ -1,4 +1,4 @@
-namespace DeviceHub.Devices.Contracts;
+namespace DeviceHub.Devices.Contracts.Abstractions.Services;
 
 public enum HardwareStatus
 {
