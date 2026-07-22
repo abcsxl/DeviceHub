@@ -1,3 +1,4 @@
+using DeviceHub.Devices.Contracts.Helpers;
 using DeviceHub.Service.Api.Models;
 
 namespace DeviceHub.Service.Api.Endpoints;
@@ -12,7 +13,7 @@ public static class LogsEndpoint
                 tail = 100;
 
             var logs = provider.GetLogs(level, tail);
-            return Results.Ok(new { total = logs.Count, entries = logs });
+            return ApiResponseHelper.Ok(new { total = logs.Count, entries = logs });
         });
         return app;
     }

@@ -10,10 +10,19 @@ function headers(): Record<string, string> {
   return { 'Accept-Language': currentLang }
 }
 
+function unwrap<T>(body: unknown): T {
+  if (body && typeof body === 'object' && 'success' in (body as Record<string, unknown>)) {
+    const apiRes = body as Record<string, unknown>
+    if (!apiRes.success) throw new Error((apiRes.message as string) || (apiRes.error as string) || 'API error')
+    return apiRes.data as T
+  }
+  return body as T
+}
+
 export async function getJson<T = unknown>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: headers() })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
-  return res.json()
+  return res.json().then(body => unwrap<T>(body))
 }
 
 export async function putJson<T = unknown>(path: string, body: unknown): Promise<T> {
@@ -23,7 +32,7 @@ export async function putJson<T = unknown>(path: string, body: unknown): Promise
     body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
-  return res.json()
+  return res.json().then(body => unwrap<T>(body))
 }
 
 export async function postJson<T = unknown>(path: string, body?: unknown): Promise<T> {
@@ -33,7 +42,7 @@ export async function postJson<T = unknown>(path: string, body?: unknown): Promi
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
-  return res.json()
+  return res.json().then(body => unwrap<T>(body))
 }
 
 export async function delJson<T = unknown>(path: string): Promise<T> {
@@ -42,5 +51,5 @@ export async function delJson<T = unknown>(path: string): Promise<T> {
     headers: headers(),
   })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
-  return res.json()
+  return res.json().then(body => unwrap<T>(body))
 }

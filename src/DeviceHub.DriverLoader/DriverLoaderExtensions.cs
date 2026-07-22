@@ -1,5 +1,7 @@
 using System.Reflection;
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

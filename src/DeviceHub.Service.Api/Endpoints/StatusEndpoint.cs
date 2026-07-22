@@ -1,4 +1,5 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Helpers;
 using DeviceHub.Service.Api.Models;
 using DeviceHub.Service.Api.WebSocket;
 
@@ -11,7 +12,7 @@ public static class StatusEndpoint
         app.MapGet("/api/status", (ServiceState state, DriverRegistry registry, WebSocketHandler wsHandler) =>
         {
             var drivers = registry.GetAll();
-            return new ServiceInfo(
+            return ApiResponseHelper.Ok(new ServiceInfo(
                 state.Version,
                 $"{state.Platform}/{state.Architecture}",
                 state.HttpPort,
@@ -19,7 +20,7 @@ public static class StatusEndpoint
                 DateTime.UtcNow - state.StartTime,
                 wsHandler.ConnectionCount,
                 drivers
-            );
+            ));
         });
         return app;
     }

@@ -3,6 +3,10 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions;
+using DeviceHub.Devices.Contracts.Helpers;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
+
 using DeviceHub.Cards.TransitCard;
 using DeviceHub.Cards.TransitCard.Models.Responses;
 using Microsoft.Extensions.Localization;
@@ -233,7 +237,14 @@ public sealed class WebSocketHandler : IDisposable
                     {
                         if (handler.Target == target)
                         {
-                            await handler.TryHandleAsync(ws, action, parameters, requestId!, services);
+                            try
+                            {
+                                await handler.TryHandleAsync(ws, action, parameters, requestId!, services);
+                            }
+                            catch (Exception ex)
+                            {
+                                await SendErrorAsync(ws, requestId!, "HARDWARE_ERROR", ex.Message);
+                            }
                             handled = true;
                             break;
                         }
@@ -321,11 +332,12 @@ public sealed class WebSocketHandler : IDisposable
                 }
                 if (result.Sw1 != "90")
                 {
+                    var (code, _) = SwCodeHelper.ClassifySw(result.Sw1 ?? "FF", result.Sw2 ?? "FF");
                     var msg = $"Transmit failed (SW={result.Sw1}{result.Sw2})";
-                    await SendErrorAsync(ws, requestId, "HARDWARE_ERROR", msg);
+                    await SendErrorAsync(ws, requestId, code, msg);
                     return;
                 }
-                data = new { sw1 = result.Sw1, sw2 = result.Sw2, responseData = result.ResponseData, success = true };
+                data = new { sw1 = result.Sw1, sw2 = result.Sw2, responseData = result.ResponseData };
                 break;
             }
 
@@ -334,13 +346,7 @@ public sealed class WebSocketHandler : IDisposable
                 return;
         }
 
-        var response = new
-        {
-            requestId,
-            success = true,
-            data,
-            timestamp = DateTime.UtcNow
-        };
+        var response = WsResponseHelper.Ok(requestId, data);
 
         var responseJson = JsonSerializer.Serialize(response);
         var bytes = Encoding.UTF8.GetBytes(responseJson);
@@ -428,7 +434,7 @@ public sealed class WebSocketHandler : IDisposable
                         await SendErrorAsync(ws, requestId, "HARDWARE_ERROR", msg);
                         return;
                     }
-                    data = execResult;
+                    data = null;
                     break;
                 }
 
@@ -447,7 +453,7 @@ public sealed class WebSocketHandler : IDisposable
                         await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "amount must be greater than 0");
                         return;
                     }
-                    if (string.IsNullOrEmpty(termainno))
+                    if (string.IsNullOrEmpty(termainno) || termainno.Length != 12)
                         termainno = "000000000000";
 
                     var result = await transitCard.ConsumeInitAsync(dealflag, keyindex, amount, termainno, readerName);
@@ -470,7 +476,7 @@ public sealed class WebSocketHandler : IDisposable
                         await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "amount must be greater than 0");
                         return;
                     }
-                    if (string.IsNullOrEmpty(termainno))
+                    if (string.IsNullOrEmpty(termainno) || termainno.Length != 12)
                         termainno = "000000000000";
 
                     var resultCapp = await transitCard.ConsumeCappInitAsync(dealflag, keyindex, amount, termainno, readerName);
@@ -498,7 +504,7 @@ public sealed class WebSocketHandler : IDisposable
                         await SendErrorAsync(ws, requestId, "HARDWARE_ERROR", msg);
                         return;
                     }
-                    data = execResult;
+                    data = null;
                     break;
                 }
 
@@ -513,13 +519,7 @@ public sealed class WebSocketHandler : IDisposable
             return;
         }
 
-        var response = new
-        {
-            requestId,
-            success = true,
-            data,
-            timestamp = DateTime.UtcNow
-        };
+        var response = WsResponseHelper.Ok(requestId, data);
 
         var responseJson = JsonSerializer.Serialize(response);
         var bytes = Encoding.UTF8.GetBytes(responseJson);
@@ -560,7 +560,7 @@ public sealed class WebSocketHandler : IDisposable
                     await SendErrorAsync(ws, requestId, "PRINT_FAILED", "Print failed");
                     return;
                 }
-                data = new { success = true };
+                data = null;
                 break;
             }
 
@@ -580,7 +580,7 @@ public sealed class WebSocketHandler : IDisposable
                     await SendErrorAsync(ws, requestId, "PRINT_FAILED", "Print failed");
                     return;
                 }
-                data = new { success = true };
+                data = null;
                 break;
             }
 
@@ -589,13 +589,7 @@ public sealed class WebSocketHandler : IDisposable
                 return;
         }
 
-        var response = new
-        {
-            requestId,
-            success = true,
-            data,
-            timestamp = DateTime.UtcNow
-        };
+        var response = WsResponseHelper.Ok(requestId, data);
 
         var responseJson = JsonSerializer.Serialize(response);
         var bytes = Encoding.UTF8.GetBytes(responseJson);
@@ -660,13 +654,7 @@ public sealed class WebSocketHandler : IDisposable
             return;
         }
 
-        var response = new
-        {
-            requestId,
-            success = true,
-            data,
-            timestamp = DateTime.UtcNow
-        };
+        var response = WsResponseHelper.Ok(requestId, data);
 
         var responseJson = JsonSerializer.Serialize(response);
         var bytes = Encoding.UTF8.GetBytes(responseJson);
@@ -681,18 +669,14 @@ public sealed class WebSocketHandler : IDisposable
         {
             JsonValueKind.String => val.GetString(),
             JsonValueKind.Number => val.GetRawText(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
             _ => null
         };
     }
     private async Task SendErrorAsync(System.Net.WebSockets.WebSocket ws, string? requestId, string code, string message)
     {
-        var response = new
-        {
-            requestId = requestId ?? Guid.NewGuid().ToString(),
-            success = false,
-            error = new { code, message },
-            timestamp = DateTime.UtcNow
-        };
+        var response = WsResponseHelper.Error(requestId ?? Guid.NewGuid().ToString(), code, message);
 
         var json = JsonSerializer.Serialize(response);
         var bytes = Encoding.UTF8.GetBytes(json);

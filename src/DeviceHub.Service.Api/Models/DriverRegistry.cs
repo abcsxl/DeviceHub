@@ -1,4 +1,5 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
 
 namespace DeviceHub.Service.Api.Models;
 

@@ -1,4 +1,4 @@
-namespace DeviceHub.Devices.Contracts;
+namespace DeviceHub.Devices.Contracts.Abstractions;
 
 [AttributeUsage(AttributeTargets.Class)]
 public class DriverNameAttribute : Attribute

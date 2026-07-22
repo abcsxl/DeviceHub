@@ -1,4 +1,6 @@
-namespace DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts;
+
+namespace DeviceHub.Devices.Contracts.Abstractions.Services;
 
 public interface IPcscService : IHardwareService
 {

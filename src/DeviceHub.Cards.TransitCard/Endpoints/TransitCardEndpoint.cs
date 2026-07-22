@@ -1,6 +1,7 @@
-using DeviceHub.Devices.Contracts;
-using DeviceHub.Cards.TransitCard.Models.Requests;
+﻿using DeviceHub.Cards.TransitCard.Models.Requests;
 using DeviceHub.Cards.TransitCard.Models.Responses;
+using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Helpers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -18,32 +19,33 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             var readers = await service.GetAvailableReadersAsync();
-            return Results.Ok(new { readers });
+            return ApiResponseHelper.Ok(new { readers });
         });
 
         group.MapPost("/reset", async (string? readerName, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             try
             {
                 var atr = await service.ResetCardAsync(readerName);
                 if (atr == null)
-                    return Results.Json(new { error = "CARD_NOT_PRESENT", message = "Reset failed, card not found" }, statusCode: 404);
-                return Results.Ok(new { atr });
+                    return ApiResponseHelper.Error("CARD_NOT_PRESENT", "Reset failed, card not found", 404);
+                return ApiResponseHelper.Ok(new { atr });
             }
             catch (InvalidOperationException ex)
             {
-                return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
             }
             catch (Exception ex)
             {
-                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message);
+                return ApiResponseHelper.Error(code, ex.Message, status);
             }
         });
 
@@ -51,20 +53,21 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             try
             {
                 var info = await service.ReadCardInfoAsync(readerName);
-                return Results.Ok(info);
+                return ApiResponseHelper.Ok(info);
             }
             catch (InvalidOperationException ex)
             {
-                return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
             }
             catch (Exception ex)
             {
-                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message);
+                return ApiResponseHelper.Error(code, ex.Message, status);
             }
         });
 
@@ -72,20 +75,21 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             try
             {
                 var balance = await service.ReadBalanceAsync(readerName);
-                return Results.Ok(balance);
+                return ApiResponseHelper.Ok(balance);
             }
             catch (InvalidOperationException ex)
             {
-                return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
             }
             catch (Exception ex)
             {
-                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message);
+                return ApiResponseHelper.Error(code, ex.Message, status);
             }
         });
 
@@ -93,20 +97,20 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             try
             {
                 var records = await service.ReadTransactionsAsync(count ?? 10, readerName);
-                return Results.Ok(new { records });
+                return ApiResponseHelper.Ok(new { records });
             }
             catch (InvalidOperationException ex)
             {
-                return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
             }
             catch (Exception ex)
             {
-                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message); return ApiResponseHelper.Error(code, ex.Message, status);
             }
         });
 
@@ -114,23 +118,23 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             if (req.Amount <= 0)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "Recharge amount must be greater than 0" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "Recharge amount must be greater than 0", 400);
 
             try
             {
                 var result = await service.RechargeInitAsync(req.Amount, req.ReaderName);
-                return Results.Ok(result);
+                return ApiResponseHelper.Ok(result);
             }
             catch (InvalidOperationException ex)
             {
-                return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
             }
             catch (Exception ex)
             {
-                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message); return ApiResponseHelper.Error(code, ex.Message, status);
             }
         });
 
@@ -138,45 +142,48 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             if (string.IsNullOrEmpty(req.SessionId) || string.IsNullOrEmpty(req.MacSignature))
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "sessionId and macSignature are required" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "sessionId and macSignature are required", 400);
 
             var result = await service.RechargeExecuteAsync(req.SessionId, req.MacSignature);
             if (!result.Success)
-                return Results.Json(new { error = "HARDWARE_ERROR", message = result.ErrorMessage ?? "Recharge execution failed" }, statusCode: 500);
+            {
+                var (code, status) = SwCodeHelper.ClassifySw(result.Sw1 ?? "FF", result.Sw2 ?? "FF");
+                return ApiResponseHelper.Error(code, result.ErrorMessage ?? "Recharge execution failed", status);
+            }
 
-            return Results.Ok(new { sw1 = result.Sw1, sw2 = result.Sw2, success = true });
+            return ApiResponseHelper.Ok();
         });
 
         group.MapPost("/consume/init", async (ConsumeInitRequest req, HttpContext context) =>
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             if (req.Dealflag < 1 || req.Dealflag > 2)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "dealflag must be 1 or 2" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "dealflag must be 1 or 2", 400);
             if (req.Keyindex < 0 || req.Keyindex > 255)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "keyindex must be 0-255" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "keyindex must be 0-255", 400);
             if (req.Amount <= 0)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "Amount must be greater than 0" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "Amount must be greater than 0", 400);
             if (string.IsNullOrEmpty(req.Termainno) || req.Termainno.Length != 12)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "termainno must be 12 hex chars (6 bytes)" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "termainno must be 12 hex chars (6 bytes)", 400);
 
             try
             {
                 var result = await service.ConsumeInitAsync(req.Dealflag, req.Keyindex, req.Amount, req.Termainno, req.ReaderName);
-                return Results.Ok(result);
+                return ApiResponseHelper.Ok(result);
             }
             catch (InvalidOperationException ex)
             {
-                return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
             }
             catch (Exception ex)
             {
-                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message); return ApiResponseHelper.Error(code, ex.Message, status);
             }
         });
 
@@ -184,29 +191,29 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             if (req.Dealflag < 1 || req.Dealflag > 2)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "dealflag must be 1 or 2" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "dealflag must be 1 or 2", 400);
             if (req.Keyindex < 0 || req.Keyindex > 255)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "keyindex must be 0-255" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "keyindex must be 0-255", 400);
             if (req.Amount <= 0)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "Amount must be greater than 0" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "Amount must be greater than 0", 400);
             if (string.IsNullOrEmpty(req.Termainno) || req.Termainno.Length != 12)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "termainno must be 12 hex chars (6 bytes)" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "termainno must be 12 hex chars (6 bytes)", 400);
 
             try
             {
                 var result = await service.ConsumeCappInitAsync(req.Dealflag, req.Keyindex, req.Amount, req.Termainno, req.ReaderName);
-                return Results.Ok(result);
+                return ApiResponseHelper.Ok(result);
             }
             catch (InvalidOperationException ex)
             {
-                return Results.Json(new { error = "CARD_NOT_PRESENT", message = ex.Message }, statusCode: 404);
+                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
             }
             catch (Exception ex)
             {
-                return Results.Json(new { error = "HARDWARE_ERROR", message = ex.Message }, statusCode: 500);
+                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message); return ApiResponseHelper.Error(code, ex.Message, status);
             }
         });
 
@@ -214,25 +221,26 @@ internal static class TransitCardEndpoint
         {
             var service = context.RequestServices.GetService<ITransitCardService>();
             if (service == null)
-                return Results.Json(new { error = "DRIVER_NOT_FOUND", message = "TransitCard not registered" }, statusCode: 503);
+                return ApiResponseHelper.Error("DRIVER_NOT_FOUND", "TransitCard not registered", 503);
 
             if (string.IsNullOrEmpty(req.SessionId))
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "sessionId is required" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "sessionId is required", 400);
             if (string.IsNullOrEmpty(req.Dealtime) || req.Dealtime.Length != 14)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "dealtime must be 14 hex chars (yyyymmddHHmiss BCD)" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "dealtime must be 14 hex chars (yyyymmddHHmiss BCD)", 400);
             if (string.IsNullOrEmpty(req.Mac1) || req.Mac1.Length != 8)
-                return Results.Json(new { error = "INVALID_PARAMETERS", message = "mac1 must be 8 hex chars (4 bytes)" }, statusCode: 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "mac1 must be 8 hex chars (4 bytes)", 400);
 
             var result = await service.ConsumeExecuteAsync(req.SessionId, req.Termdealno, req.Dealtime, req.Mac1);
             if (!result.Success)
             {
                 var msg = result.ErrorMessage ?? "Consume execution failed";
+                var (code, status) = SwCodeHelper.ClassifySw(result.Sw1 ?? "FF", result.Sw2 ?? "FF");
                 if (result.Sw1 != null)
                     msg += $" (SW={result.Sw1}{result.Sw2})";
-                return Results.Json(new { error = "HARDWARE_ERROR", message = msg, sw1 = result.Sw1, sw2 = result.Sw2 }, statusCode: 500);
+                return ApiResponseHelper.Error(code, msg, status);
             }
 
-            return Results.Ok(new { sw1 = result.Sw1, sw2 = result.Sw2, success = true });
+            return ApiResponseHelper.Ok();
         });
     }
 

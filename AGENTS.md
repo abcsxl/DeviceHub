@@ -90,6 +90,35 @@
   - 新增字符串时，必须同时更新两个资源文件
   - 扩展方法位于 `Extensions/LocalizationExtensions.cs`
 
+## REST 响应格式
+所有硬件及系统 API 端点统一使用 `ApiResponse<T>` 格式：
+
+| 场景 | 响应结构 |
+|------|----------|
+| 成功 | `{ "success": true, "data": { ...业务数据... } }` |
+| 成功（无数据） | `{ "success": true, "data": null }` |
+| 参数错误 | `{ "success": false, "error": "INVALID_PARAMETERS", "message": "错误描述" }` |
+| 资源未找到 | `{ "success": false, "error": "CARD_NOT_FOUND", "message": "错误描述" }` |
+| 硬件错误 | `{ "success": false, "error": "SECURITY_ERROR", "message": "失败描述 (SW=6988)" }` |
+
+- 端点必须通过 `ApiResponseHelper.Ok()` / `.BadRequest()` / `.Error()` / `.NotFound()` 返回，禁止直接返回 `Results.Ok` / `Results.Json` / 匿名对象
+- APDU 执行失败使用 `SwCodeHelper.ClassifySw(sw1, sw2)` 自动映射错误码，SW 码始终包含在 `message` 中
+- execute 端点成功时返回 `data: null`，不返回 `sw1`/`sw2`（成功即隐含 SW=9000）
+- 二进制文件下载（如 IdCard 照片）可通过 `Results.File` 返回，属于合理例外
+
+## WebSocket 响应格式
+WS 响应与 REST 共用相同的 `{ success, data, error }` 语义，增加 WS 特有的 `requestId`（请求关联）和 `timestamp`（ISO 8601）：
+
+| 场景 | 响应结构 |
+|------|----------|
+| 成功 | `{ "requestId": "...", "success": true, "data": { ... }, "timestamp": "2026-07-22T12:00:00Z" }` |
+| 失败 | `{ "requestId": "...", "success": false, "error": { "code": "CARD_NOT_PRESENT", "message": "..." }, "timestamp": "..." }` |
+
+- WS handler 必须通过 `WsResponseHelper.Ok()` / `WsResponseHelper.Error()` 构造响应，禁止内联 `new { ... }`
+- 错误码与 REST 共用同一定义表（CARD_NOT_PRESENT、SECURITY_ERROR、INVALID_PARAMETERS 等）
+- 执行类 action 成功时 `data` 返回 `null`（与 REST execute 端点一致），不应在 `data` 内嵌套 `{ success: true }`
+- `SendResponse`/`SendError` 方法内部调用 `WsResponseHelper`，统一序列化发送
+
 ## WebSocket 协议
 - 所有硬件操作均可通过 WS 完成（REST 功能完整超集），外加实时事件推送
 - 内置 target：`pcsc`、`transitcard`、`printer`、`id-card`

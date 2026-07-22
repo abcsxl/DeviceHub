@@ -1,5 +1,5 @@
-using DeviceHub.Devices.Contracts;
 using DeviceHub.Cards.TransitCard.Models.Responses;
+using DeviceHub.Devices.Contracts;
 
 namespace DeviceHub.Cards.TransitCard;
 

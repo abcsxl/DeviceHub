@@ -1,5 +1,8 @@
 using DeviceHub.Cards.TransitCard.Extensions;
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
+
 using DeviceHub.Devices.PcscReader.Extensions;
 using DeviceHub.Devices.Printer.Extensions;
 using DeviceHub.Devices.IdCard.Extensions;

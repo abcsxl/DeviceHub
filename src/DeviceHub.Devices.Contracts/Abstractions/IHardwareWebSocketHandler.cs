@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace DeviceHub.Devices.Contracts;
+namespace DeviceHub.Devices.Contracts.Abstractions;
 
 /// <summary>
 /// 允许插件驱动注册 WebSocket action 处理器。

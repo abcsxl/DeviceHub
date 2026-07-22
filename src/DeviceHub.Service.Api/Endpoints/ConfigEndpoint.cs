@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Helpers;
 using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
@@ -21,7 +22,7 @@ public static class ConfigEndpoint
         app.MapGet("/api/config", async (IConfiguration config) =>
         {
             var appConfig = BindConfig(config);
-            return Results.Json(appConfig, new JsonSerializerOptions { WriteIndented = true });
+            return ApiResponseHelper.Ok(appConfig);
         });
 
         app.MapPut("/api/config", async (
@@ -38,9 +39,7 @@ public static class ConfigEndpoint
             var errors = merged.Validate();
 
             if (errors.Count > 0)
-                return Results.Json(
-                    new { error = "INVALID_PARAMETERS", message = string.Join("; ", errors) },
-                    statusCode: 400);
+                return ApiResponseHelper.BadRequest("INVALID_PARAMETERS", string.Join("; ", errors));
 
             var configPath = Path.Combine(env.ContentRootPath, "appsettings.json");
             var existingJson = await File.ReadAllTextAsync(configPath, Encoding.UTF8);
@@ -70,7 +69,7 @@ public static class ConfigEndpoint
             }
 
             logger.LogInformation("Configuration updated, version {Version}", merged.ConfigVersion);
-            return Results.Ok(merged);
+            return ApiResponseHelper.Ok(merged);
         });
 
         app.MapPost("/api/config/reset", async (
@@ -80,9 +79,7 @@ public static class ConfigEndpoint
             IStringLocalizer<Program> L) =>
         {
             if (_defaultConfigJson == null)
-                return Results.Json(
-                    new { error = "NO_DEFAULT_CONFIG", message = L["NoDefaultConfig"].Value },
-                    statusCode: 500);
+                return ApiResponseHelper.Error("NO_DEFAULT_CONFIG", L["NoDefaultConfig"].Value);
 
             var logger = loggerFactory.CreateLogger("Config");
             var configPath = Path.Combine(env.ContentRootPath, "appsettings.json");
@@ -92,7 +89,7 @@ public static class ConfigEndpoint
                 root.Reload();
 
             logger.LogInformation("Configuration reset to defaults");
-            return Results.Ok(BindConfig(config));
+            return ApiResponseHelper.Ok(BindConfig(config));
         });
 
         return app;

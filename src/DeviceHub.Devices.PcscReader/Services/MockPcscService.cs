@@ -1,4 +1,7 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
+
 using DeviceHub.Devices.PcscReader.Endpoints;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;

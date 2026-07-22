@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions;
+using DeviceHub.Devices.Contracts.Abstractions.Services;
 using DeviceHub.Devices.Printer.Endpoints;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
