@@ -98,8 +98,7 @@ jobs:
 
       - name: Install nfpm
         run: |
-          curl -sL "https://github.com/goreleaser/nfpm/releases/latest/download/nfpm_amd64.deb" \
-            -o /tmp/nfpm.deb
+          gh release download --repo goreleaser/nfpm --pattern "nfpm_amd64.deb" --output /tmp/nfpm.deb
           sudo dpkg -i /tmp/nfpm.deb
           echo "nfpm $(nfpm --version)"
 
