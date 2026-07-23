@@ -17,9 +17,13 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
     private readonly ILogger<PrinterService> _logger;
     private readonly object _statusLock = new();
     private HardwareStatus _status = HardwareStatus.Stopped;
+    private int _jobCounter;
 
     public string Name => "Printer";
     public HardwareStatus Status { get { lock (_statusLock) { return _status; } } }
+
+    public event EventHandler<PrinterJobEventArgs>? JobCompleted;
+    public event EventHandler<PrinterJobEventArgs>? JobError;
 
     public PrinterService(ILogger<PrinterService> logger) => _logger = logger;
 
@@ -57,16 +61,25 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
         if (string.IsNullOrEmpty(name))
             return false;
 
+        var jobId = $"print-{Interlocked.Increment(ref _jobCounter)}";
         try
         {
+            bool success;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                return WindowsPrintText(text, name);
+                success = WindowsPrintText(text, name);
             else
-                return await LinuxPrintText(text, name, ct);
+                success = await LinuxPrintText(text, name, ct);
+
+            if (success)
+                JobCompleted?.Invoke(this, new PrinterJobEventArgs(jobId, name, "completed"));
+            else
+                JobError?.Invoke(this, new PrinterJobEventArgs(jobId, name, "error", "Print failed"));
+            return success;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to print text to {Printer}", name);
+            JobError?.Invoke(this, new PrinterJobEventArgs(jobId, name, "error", ex.Message));
             return false;
         }
     }
@@ -77,16 +90,25 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
         if (string.IsNullOrEmpty(name))
             return false;
 
+        var jobId = $"print-{Interlocked.Increment(ref _jobCounter)}";
         try
         {
+            bool success;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                return WindowsRawPrint(name, data);
+                success = WindowsRawPrint(name, data);
             else
-                return await LinuxRawPrint(name, data, ct);
+                success = await LinuxRawPrint(name, data, ct);
+
+            if (success)
+                JobCompleted?.Invoke(this, new PrinterJobEventArgs(jobId, name, "completed"));
+            else
+                JobError?.Invoke(this, new PrinterJobEventArgs(jobId, name, "error", "Print failed"));
+            return success;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to print raw data to {Printer}", name);
+            JobError?.Invoke(this, new PrinterJobEventArgs(jobId, name, "error", ex.Message));
             return false;
         }
     }

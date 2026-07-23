@@ -27,6 +27,8 @@ public class MockPcscService : IPcscService, IHardwareEndpointRegistrar, IDispos
     public void MapEndpoints(IEndpointRouteBuilder app) => PcscEndpoint.MapEndpoints(app);
 
     public event EventHandler<CardStatusEventArgs>? CardStatusChanged;
+    public event EventHandler<ReaderStatusEventArgs>? ReaderArrival;
+    public event EventHandler<ReaderStatusEventArgs>? ReaderRemoval;
 
     public MockPcscService(ILogger<MockPcscService> logger)
     {
@@ -45,6 +47,8 @@ public class MockPcscService : IPcscService, IHardwareEndpointRegistrar, IDispos
 
             _status = HardwareStatus.Running;
             _logger.LogInformation("[Mock] PCSC mock service started, readers: {Reader1}, {Reader2}", MockReaderCl, MockReaderSam);
+            ReaderArrival?.Invoke(this, new ReaderStatusEventArgs(MockReaderCl, "arrived"));
+            ReaderArrival?.Invoke(this, new ReaderStatusEventArgs(MockReaderSam, "arrived"));
 
             _monitorCts = new CancellationTokenSource();
             _monitorThread = new Thread(() => MonitorCardState(_monitorCts.Token))
