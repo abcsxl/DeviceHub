@@ -17,7 +17,8 @@ internal static class PrinterEndpoint
 
         group.MapGet("/printers", async (HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IPrinterService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IPrinterService>(out var error);
+if (service == null) return error;
 
             var printers = await service.GetPrintersAsync();
             return ApiResponseHelper.Ok(new { printers });
@@ -25,7 +26,8 @@ internal static class PrinterEndpoint
 
         group.MapPost("/print", async (PrintRequest req, HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IPrinterService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IPrinterService>(out var error);
+if (service == null) return error;
 
             if (string.IsNullOrEmpty(req.Text))
                 return ApiResponseHelper.Error("INVALID_PARAMETERS", "text is required", 400);
@@ -39,7 +41,8 @@ internal static class PrinterEndpoint
 
         group.MapPost("/print-raw", async (PrintRawRequest req, HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IPrinterService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IPrinterService>(out var error);
+if (service == null) return error;
 
             if (string.IsNullOrEmpty(req.Data) || req.Data.Length % 2 != 0)
                 return ApiResponseHelper.Error("INVALID_DATA", "Data must be a valid hex string", 400);

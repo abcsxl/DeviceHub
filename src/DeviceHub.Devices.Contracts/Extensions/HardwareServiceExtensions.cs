@@ -10,18 +10,22 @@ public static class HardwareServiceExtensions
     public static T? GetHardwareService<T>(this IServiceProvider sp) where T : class
         => sp.GetServices<IHardwareService>().OfType<T>().FirstOrDefault();
 
-    public static IResult? CheckHardwareService<T>(this IServiceProvider sp, out T? service, string? displayName = null) where T : class
+    public static T? CheckHardwareService<T>(this IServiceProvider sp, out IResult? error, string? displayName = null) where T : class
     {
-        service = sp.GetHardwareService<T>();
+        var service = sp.GetHardwareService<T>();
         if (service == null)
-            return ApiResponseHelper.Error("DRIVER_NOT_FOUND", $"{(displayName ?? typeof(T).Name)} not registered", 503);
+        {
+            error = ApiResponseHelper.Error("DRIVER_NOT_FOUND", $"{(displayName ?? typeof(T).Name)} not registered", 503);
+            return null;
+        }
 
         if (service is IHardwareService hwSvc && hwSvc.Status != HardwareStatus.Running)
         {
-            service = null;
-            return ApiResponseHelper.Error("SERVICE_NOT_RUNNING", $"{hwSvc.Name} is not running", 503);
+            error = ApiResponseHelper.Error("SERVICE_NOT_RUNNING", $"{hwSvc.Name} is not running", 503);
+            return null;
         }
 
-        return null;
+        error = null;
+        return service;
     }
 }

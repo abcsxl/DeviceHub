@@ -40,27 +40,62 @@ cp -r "$PUBLISH_DIR"/* "$PUBLISH_DIR/package/"
 cp "$REPO_ROOT/deploy/linux/devicehub.service" "$PUBLISH_DIR/package/"
 cp "$REPO_ROOT/deploy/linux/install.sh" "$PUBLISH_DIR/package/"
 cp "$REPO_ROOT/deploy/linux/uninstall.sh" "$PUBLISH_DIR/package/"
+cp "$REPO_ROOT/deploy/linux/postinst.sh" "$PUBLISH_DIR/package/"
+cp "$REPO_ROOT/deploy/linux/prerm.sh" "$PUBLISH_DIR/package/"
 chmod +x "$PUBLISH_DIR/package/install.sh"
 
-export NFPM_NAME="devicehub"
-export NFPM_VERSION="$VERSION"
-export NFPM_ARCH="$NFPM_ARCH"
-export NFPM_DESC="DeviceHub — Hardware device management service\nProvides PCSC card reader, printer, and ID card reader management"
-export NFPM_PUBLISH_DIR="$PUBLISH_DIR/package"
-export NFPM_DEPLOY_DIR="$REPO_ROOT/deploy/linux"
+PACKAGE_DIR="$PUBLISH_DIR/package"
 
 cd "$REPO_ROOT"
-rm -f "$PUBLISH_DIR/package/.sha256"
+rm -f "$PACKAGE_DIR/.sha256"
 
-# nfpm 可能不在 PATH，尝试常见位置
 NFPM_CMD="$(command -v nfpm || true)"
 if [ -z "$NFPM_CMD" ]; then
   echo "  ! nfpm not found, skipping .deb/.rpm (install with: apt install nfpm)"
 else
-  nfpm package -p deb -f deploy/linux/nfpm.yaml
-  nfpm package -p rpm -f deploy/linux/nfpm.yaml
+  cat > "$REPO_ROOT/.nfpm.yaml" << EOF
+name: "devicehub"
+arch: "$NFPM_ARCH"
+platform: linux
+version: "$VERSION"
+section: net
+priority: optional
+maintainer: "DeviceHub Team"
+description: |-
+  DeviceHub — Hardware device management service
+  Provides PCSC card reader, printer, and ID card reader management
+homepage: "https://github.com/abcsxl/DeviceHub"
+license: MIT
+
+contents:
+  - src: "$PACKAGE_DIR/"
+    dst: /usr/local/bin/devicehub/
+  - src: "$PACKAGE_DIR/devicehub.service"
+    dst: /etc/systemd/system/devicehub.service
+
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libstdc++6
+      - pcscd
+      - cups
+  rpm:
+    depends:
+      - glibc
+      - libstdc++
+      - pcsc-lite
+      - cups-libs
+
+scripts:
+  postinstall: $PACKAGE_DIR/postinst.sh
+  preremove: $PACKAGE_DIR/prerm.sh
+EOF
+  nfpm package -p deb -f "$REPO_ROOT/.nfpm.yaml"
+  nfpm package -p rpm -f "$REPO_ROOT/.nfpm.yaml"
   mv devicehub_*.deb "$REPO_ROOT/output/"
   mv devicehub-*.rpm "$REPO_ROOT/output/"
+  rm -f "$REPO_ROOT/.nfpm.yaml"
   echo "  已生成: output/DeviceHub-$VERSION-$NFPM_ARCH.deb"
   echo "  已生成: output/DeviceHub-$VERSION-$NFPM_ARCH.rpm"
 fi

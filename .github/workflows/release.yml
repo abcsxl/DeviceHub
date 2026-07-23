@@ -123,6 +123,8 @@ jobs:
           cp -r output/publish/linux-x64/* "$pkgdir/"
           cp deploy/linux/devicehub.service "$pkgdir/"
           cp deploy/linux/install.sh "$pkgdir/"
+          cp deploy/linux/postinst.sh "$pkgdir/"
+          cp deploy/linux/prerm.sh "$pkgdir/"
           chmod +x "$pkgdir/install.sh"
 
           # tar.gz
@@ -133,16 +135,49 @@ jobs:
 
           # .deb / .rpm via nfpm
           cd "$GITHUB_WORKSPACE"
-          export NFPM_NAME="devicehub"
-          export NFPM_VERSION="$VERSION"
-          export NFPM_ARCH="amd64"
-          export NFPM_DESC="DeviceHub — Hardware device management service"
-          export NFPM_PUBLISH_DIR="$pkgdir"
-          export NFPM_DEPLOY_DIR="deploy/linux"
-          nfpm package -p deb -f deploy/linux/nfpm.yaml
-          nfpm package -p rpm -f deploy/linux/nfpm.yaml
+          cat > .nfpm.yaml << EOF
+name: "devicehub"
+arch: "amd64"
+platform: linux
+version: "$VERSION"
+section: net
+priority: optional
+maintainer: "DeviceHub Team"
+description: |-
+  DeviceHub — Hardware device management service
+  Provides PCSC card reader, printer, and ID card reader management
+homepage: "https://github.com/abcsxl/DeviceHub"
+license: MIT
+
+contents:
+  - src: "$pkgdir/"
+    dst: /usr/local/bin/devicehub/
+  - src: "$pkgdir/devicehub.service"
+    dst: /etc/systemd/system/devicehub.service
+
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libstdc++6
+      - pcscd
+      - cups
+  rpm:
+    depends:
+      - glibc
+      - libstdc++
+      - pcsc-lite
+      - cups-libs
+
+scripts:
+  postinstall: $pkgdir/postinst.sh
+  preremove: $pkgdir/prerm.sh
+EOF
+          nfpm package -p deb -f .nfpm.yaml
+          nfpm package -p rpm -f .nfpm.yaml
           mv devicehub_*.deb output/
           mv devicehub-*.rpm output/
+          rm -f .nfpm.yaml
           cd output
           for f in devicehub_*.deb devicehub-*.rpm; do
             [ -f "$f" ] && sha256sum "$f" > "$f.sha256"
