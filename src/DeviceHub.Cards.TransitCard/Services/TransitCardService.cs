@@ -34,7 +34,15 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
     public async Task<string?> ResetCardAsync(string? readerName = null, CancellationToken ct = default)
     {
         var name = await ResolveReaderName(readerName, ct);
-        return await _pcsc.ResetCardAsync(name, ct);
+        var atr = await _pcsc.ResetCardAsync(name, ct);
+        if (atr == null)
+        {
+            var readers = await _pcsc.ListReadersAsync(ct);
+            if (readers.All(r => r.Name != name))
+                throw new InvalidOperationException("READER_NOT_FOUND");
+            throw new InvalidOperationException("CARD_NOT_PRESENT");
+        }
+        return atr;
     }
 
     public async Task<CardInfo> ReadCardInfoAsync(string? readerName = null, CancellationToken ct = default)
@@ -189,14 +197,19 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         var result = await _pcsc.TransmitAsync(readerName, ApduBuilder.SelectTransitAid(), ct);
         if (!result.Success || result.Sw1 != SwConstants.SuccessPrefix)
         {
-            _logger.LogWarning("SELECT AID failed for {Reader}: SW={Sw1}{Sw2}", readerName, result.Sw1, result.Sw2);
+            _logger.LogWarning("SELECT AID failed for {Reader}: SW={Sw1}{Sw2} ErrorCode={EC}", readerName, result.Sw1, result.Sw2, result.ErrorCode);
+            if (!result.Success && result.ErrorCode != null)
+                throw new InvalidOperationException(result.ErrorCode);
             throw new InvalidOperationException($"SELECT transit card applet failed (SW={result.Sw1}{result.Sw2})");
         }
     }
 
     private async Task<TransmitResult> TransmitHex(string readerName, string apdu, CancellationToken ct)
     {
-        return await _pcsc.TransmitAsync(readerName, apdu, ct);
+        var result = await _pcsc.TransmitAsync(readerName, apdu, ct);
+        if (!result.Success && result.ErrorCode != null)
+            throw new InvalidOperationException(result.ErrorCode);
+        return result;
     }
 
     private static string ParseCardNumber(string? responseData)

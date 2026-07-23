@@ -11,6 +11,34 @@ namespace DeviceHub.Cards.TransitCard.Endpoints;
 
 internal static class TransitCardEndpoint
 {
+    private const string CARD_NOT_PRESENT = "CARD_NOT_PRESENT";
+    private const string READER_NOT_FOUND = "READER_NOT_FOUND";
+    private const string SERVICE_NOT_RUNNING = "SERVICE_NOT_RUNNING";
+
+    private static IResult HandleError(Exception ex)
+    {
+        if (ex is InvalidOperationException ioe)
+        {
+            var code = ioe.Message switch
+            {
+                "READER_NOT_FOUND" => READER_NOT_FOUND,
+                "SERVICE_NOT_RUNNING" => SERVICE_NOT_RUNNING,
+                "CARD_NOT_PRESENT" => CARD_NOT_PRESENT,
+                _ => CARD_NOT_PRESENT
+            };
+            var status = code switch
+            {
+                READER_NOT_FOUND or CARD_NOT_PRESENT => 404,
+                SERVICE_NOT_RUNNING => 503,
+                _ => 404
+            };
+            return ApiResponseHelper.Error(code, ioe.Message, status);
+        }
+
+        var (code2, status2) = SwCodeHelper.ClassifySwFromMessage(ex.Message);
+        return ApiResponseHelper.Error(code2, ex.Message, status2);
+    }
+
     internal static void MapEndpoints(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/hardware/transitcard");
@@ -35,17 +63,12 @@ internal static class TransitCardEndpoint
             {
                 var atr = await service.ResetCardAsync(readerName);
                 if (atr == null)
-                    return ApiResponseHelper.Error("CARD_NOT_PRESENT", "Reset failed, card not found", 404);
+                    return ApiResponseHelper.Error(SERVICE_NOT_RUNNING, "Reset failed: PCSC service not running", 503);
                 return ApiResponseHelper.Ok(new { atr });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
             }
             catch (Exception ex)
             {
-                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message);
-                return ApiResponseHelper.Error(code, ex.Message, status);
+                return HandleError(ex);
             }
         });
 
@@ -60,14 +83,9 @@ internal static class TransitCardEndpoint
                 var info = await service.ReadCardInfoAsync(readerName);
                 return ApiResponseHelper.Ok(info);
             }
-            catch (InvalidOperationException ex)
-            {
-                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
-            }
             catch (Exception ex)
             {
-                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message);
-                return ApiResponseHelper.Error(code, ex.Message, status);
+                return HandleError(ex);
             }
         });
 
@@ -82,14 +100,9 @@ internal static class TransitCardEndpoint
                 var balance = await service.ReadBalanceAsync(readerName);
                 return ApiResponseHelper.Ok(balance);
             }
-            catch (InvalidOperationException ex)
-            {
-                return ApiResponseHelper.Error("CARD_NOT_PRESENT", ex.Message, 404);
-            }
             catch (Exception ex)
             {
-                var (code, status) = SwCodeHelper.ClassifySwFromMessage(ex.Message);
-                return ApiResponseHelper.Error(code, ex.Message, status);
+                return HandleError(ex);
             }
         });
 
