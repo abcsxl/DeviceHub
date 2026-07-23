@@ -70,6 +70,7 @@ if (service == null) return error;
                 {
                     "CARD_NOT_PRESENT" => 404,
                     "READER_NOT_FOUND" => 404,
+                    "SERVICE_NOT_RUNNING" => 503,
                     "INVALID_PARAMETERS" => 400,
                     _ => 500
                 };

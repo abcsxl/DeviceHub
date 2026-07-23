@@ -12,6 +12,10 @@ namespace DeviceHub.Devices.PcscReader.Services;
 public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 {
     private const uint Success = 0;
+    private const uint ScardENoSmartcard = 0x8010000C;
+    private const uint ScardEReaderUnavailable = 0x8010000F;
+    private const uint ScardENoService = 0x8010001D;
+    private const uint ScardENoReaderAvailable = 0x8010002E;
 
     private readonly ILogger<PcscService> _logger;
     private readonly object _syncLock = new();
@@ -26,7 +30,8 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
     public HardwareStatus Status => _status;
     public void MapEndpoints(IEndpointRouteBuilder app) => PcscEndpoint.MapEndpoints(app);
 
-    public event EventHandler<CardStatusEventArgs>? CardStatusChanged;
+    public event EventHandler<CardStatusEventArgs>? CardInserted;
+    public event EventHandler<CardStatusEventArgs>? CardRemoved;
     public event EventHandler<ReaderStatusEventArgs>? ReaderArrival;
     public event EventHandler<ReaderStatusEventArgs>? ReaderRemoval;
 
@@ -182,9 +187,18 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
             out var hCard, out var protocol);
 
         if (rc != Success)
+        {
+            var errorCode = (uint)rc switch
+            {
+                ScardENoSmartcard => "CARD_NOT_PRESENT",
+                ScardEReaderUnavailable or ScardENoReaderAvailable => "READER_NOT_FOUND",
+                ScardENoService => "SERVICE_NOT_RUNNING",
+                _ => "HARDWARE_ERROR"
+            };
             return Task.FromResult(new TransmitResult(false,
                 ErrorMessage: $"Failed to connect to reader: 0x{rc:X8}",
-                ErrorCode: "READER_ERROR"));
+                ErrorCode: errorCode));
+        }
 
         try
         {
@@ -202,9 +216,15 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 
             if (rc != Success)
             {
+                var errorCode = (uint)rc switch
+                {
+                    ScardENoSmartcard => "CARD_NOT_PRESENT",
+                    ScardEReaderUnavailable or ScardENoReaderAvailable => "READER_NOT_FOUND",
+                    _ => "HARDWARE_ERROR"
+                };
                 return Task.FromResult(new TransmitResult(false,
                     ErrorMessage: $"Transmit failed: 0x{rc:X8}",
-                    ErrorCode: "HARDWARE_ERROR"));
+                    ErrorCode: errorCode));
             }
 
             Array.Resize(ref recvBuf, (int)recvLen);
@@ -331,10 +351,14 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 
                 foreach (var (name, wasPresent, isPresent) in changes)
                 {
-                    CardStatusChanged?.Invoke(this,
-                        new CardStatusEventArgs(name,
-                            wasPresent ? "card_present" : "empty",
-                            isPresent ? "card_present" : "empty"));
+                    var args = new CardStatusEventArgs(name,
+                        wasPresent ? "card_present" : "empty",
+                        isPresent ? "card_present" : "empty");
+
+                    if (isPresent && !wasPresent)
+                        CardInserted?.Invoke(this, args);
+                    else if (wasPresent && !isPresent)
+                        CardRemoved?.Invoke(this, args);
                 }
 
                 Thread.Sleep(1000);
