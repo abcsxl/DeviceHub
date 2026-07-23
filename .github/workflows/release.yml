@@ -97,7 +97,9 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Install nfpm
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq nfpm
+        run: |
+          curl -sfL https://install.goreleaser.com/nfpm.sh | sh
+          echo "$PWD/bin" >> $GITHUB_PATH
 
       - name: Set tag
         run: |
