@@ -17,7 +17,8 @@ internal static class PcscEndpoint
 
         group.MapGet("/readers", async (HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IPcscService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IPcscService>(out var error);
+if (service == null) return error;
 
             var readers = await service.ListReadersAsync();
             return ApiResponseHelper.Ok(new { readers });
@@ -25,7 +26,8 @@ internal static class PcscEndpoint
 
         group.MapGet("/readers/{name}", async (string name, HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IPcscService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IPcscService>(out var error);
+if (service == null) return error;
 
             var readers = await service.ListReadersAsync();
             if (readers.All(r => r.Name != name))
@@ -40,7 +42,8 @@ internal static class PcscEndpoint
 
         group.MapGet("/readers/{name}/atr", async (string name, HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IPcscService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IPcscService>(out var error);
+if (service == null) return error;
 
             var atr = await service.GetAtrAsync(name);
             return atr != null
@@ -50,7 +53,8 @@ internal static class PcscEndpoint
 
         group.MapPost("/transmit", async (TransmitRequest request, HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IPcscService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IPcscService>(out var error);
+if (service == null) return error;
 
             if (string.IsNullOrEmpty(request.ReaderName) || string.IsNullOrEmpty(request.Apdu))
                 return ApiResponseHelper.BadRequest("INVALID_PARAMETERS", "readerName and apdu are required");
@@ -69,7 +73,7 @@ internal static class PcscEndpoint
                     "INVALID_PARAMETERS" => 400,
                     _ => 500
                 };
-                var msg = result.ErrorMessage;
+                var msg = result.ErrorMessage ?? "Unknown error";
                 if (result.Sw1 != null)
                     msg += $" (SW={result.Sw1}{result.Sw2})";
                 return ApiResponseHelper.Error(code, msg, status);

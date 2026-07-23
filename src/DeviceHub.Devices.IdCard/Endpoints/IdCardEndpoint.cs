@@ -17,7 +17,8 @@ internal static class IdCardEndpoint
 
         group.MapGet("/readers", async (HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IIdCardService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IIdCardService>(out var error);
+if (service == null) return error;
 
             var readers = await service.GetReadersAsync();
             return ApiResponseHelper.Ok(new { readers });
@@ -25,7 +26,8 @@ internal static class IdCardEndpoint
 
         group.MapPost("/read", async (ReadRequest req, HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IIdCardService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IIdCardService>(out var error);
+if (service == null) return error;
 
             var info = await service.ReadCardAsync(req.ReaderName);
             if (info == null)
@@ -36,7 +38,8 @@ internal static class IdCardEndpoint
 
         group.MapPost("/read-photo", async (ReadRequest req, HttpContext context) =>
         {
-            if (context.RequestServices.CheckHardwareService<IIdCardService>(out var service) is IResult err) return err;
+            var service = context.RequestServices.CheckHardwareService<IIdCardService>(out var error);
+if (service == null) return error;
 
             var photo = await service.ReadPhotoAsync(req.ReaderName);
             if (photo == null)
