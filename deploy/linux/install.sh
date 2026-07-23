@@ -239,7 +239,7 @@ else
   echo "$MSG_CONFIG_EDIT sudo nano $APP_DIR/appsettings.json"
   echo "$MSG_RESTART_CMD systemctl restart $APP_NAME"
   echo "$MSG_STOP_CMD systemctl stop $APP_NAME"
-  echo "$MSG_UNINSTALL systemctl disable $APP_NAME && rm -rf $APP_DIR /etc/systemd/system/$SERVICE_FILE && systemctl daemon-reload"
+  echo "$MSG_UNINSTALL sudo ./uninstall.sh"
   
   if [ "$FORCE_KILLED" = true ]; then
     echo ""

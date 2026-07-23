@@ -1,0 +1,51 @@
+name: "{{ .Env.NFPM_NAME }}"
+arch: "{{ .Env.NFPM_ARCH }}"
+platform: linux
+version: "{{ .Env.NFPM_VERSION }}"
+section: net
+priority: optional
+maintainer: "DeviceHub Team"
+description: |-
+  {{ .Env.NFPM_DESC }}
+homepage: "https://github.com/abcsxl/DeviceHub"
+license: MIT
+
+contents:
+  - src: "{{ .Env.NFPM_PUBLISH_DIR }}/DeviceHub.Service.Api"
+    dst: /usr/local/bin/devicehub/DeviceHub.Service.Api
+    file_info:
+      mode: 0755
+
+  - src: "{{ .Env.NFPM_PUBLISH_DIR }}/appsettings.json"
+    dst: /usr/local/bin/devicehub/appsettings.json
+    type: config|noreplace
+
+  - src: "{{ .Env.NFPM_PUBLISH_DIR }}/data/"
+    dst: /usr/local/bin/devicehub/data/
+    type: dir
+
+  - src: "{{ .Env.NFPM_DEPLOY_DIR }}/devicehub.service"
+    dst: /etc/systemd/system/devicehub.service
+
+{{- if .Env.NFPM_DRIVERS_DIR }}
+  - src: "{{ .Env.NFPM_DRIVERS_DIR }}/"
+    dst: /usr/local/bin/devicehub/drivers/
+{{- end }}
+
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libstdc++6
+      - pcscd
+      - cups
+  rpm:
+    depends:
+      - glibc
+      - libstdc++
+      - pcsc-lite
+      - cups-libs
+
+scripts:
+  postinstall: "{{ .Env.NFPM_DEPLOY_DIR }}/postinst.sh"
+  preremove: "{{ .Env.NFPM_DEPLOY_DIR }}/prerm.sh"

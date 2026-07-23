@@ -96,6 +96,9 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Install nfpm
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq nfpm
+
       - name: Set tag
         run: |
           tag="${{ github.event.release.tag_name || github.event.inputs.tag }}"
@@ -118,9 +121,29 @@ jobs:
           cp deploy/linux/devicehub.service "$pkgdir/"
           cp deploy/linux/install.sh "$pkgdir/"
           chmod +x "$pkgdir/install.sh"
+
+          # tar.gz
           cd output
           tar czf "DeviceHub-$VERSION-linux-x64.tar.gz" "devicehub-$VERSION"
-          sha256sum "DeviceHub-$VERSION-linux-x64.tar.gz" > "DeviceHub-$VERSION-linux-x64.tar.gz.sha256"
+          sha256sum "DeviceHub-$VERSION-linux-x64.tar.gz" \
+            > "DeviceHub-$VERSION-linux-x64.tar.gz.sha256"
+
+          # .deb / .rpm via nfpm
+          cd "$GITHUB_WORKSPACE"
+          export NFPM_NAME="devicehub"
+          export NFPM_VERSION="$VERSION"
+          export NFPM_ARCH="amd64"
+          export NFPM_DESC="DeviceHub — Hardware device management service"
+          export NFPM_PUBLISH_DIR="$pkgdir"
+          export NFPM_DEPLOY_DIR="deploy/linux"
+          nfpm package -p deb -f deploy/linux/nfpm.yaml
+          nfpm package -p rpm -f deploy/linux/nfpm.yaml
+          mv devicehub_*.deb output/
+          mv devicehub-*.rpm output/
+          cd output
+          for f in devicehub_*.deb devicehub-*.rpm; do
+            [ -f "$f" ] && sha256sum "$f" > "$f.sha256"
+          done
 
       - name: Create Release (workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -133,9 +156,13 @@ jobs:
 
       - name: Upload to Release
         run: |
+          uploads=(output/DeviceHub-$VERSION-linux-x64.tar.gz)
+          uploads+=("output/DeviceHub-$VERSION-linux-x64.tar.gz.sha256")
+          for f in output/devicehub_*.deb output/devicehub-*.rpm; do
+            [ -f "$f" ] && uploads+=("$f" "$f.sha256")
+          done
           gh release upload "$TAG" \
-            output/DeviceHub-$VERSION-linux-x64.tar.gz \
-            output/DeviceHub-$VERSION-linux-x64.tar.gz.sha256 \
+            "${uploads[@]}" \
             --repo ${{ github.repository }} \
             --clobber
 
@@ -177,6 +204,14 @@ jobs:
               "linux-x64": {
                 "url": "https://github.com/$repo/releases/download/$TAG/DeviceHub-$VERSION-linux-x64.tar.gz",
                 "hash": "$(cat DeviceHub-*-linux-x64.tar.gz.sha256 | head -1 | cut -d' ' -f1)"
+              },
+              "linux-x64-deb": {
+                "url": "https://github.com/$repo/releases/download/$TAG/DeviceHub_$VERSION_amd64.deb",
+                "hash": "$(cat DeviceHub_*.deb.sha256 | head -1 | cut -d' ' -f1)"
+              },
+              "linux-x64-rpm": {
+                "url": "https://github.com/$repo/releases/download/$TAG/devicehub-$VERSION-1.x86_64.rpm",
+                "hash": "$(cat devicehub-*.rpm.sha256 | head -1 | cut -d' ' -f1)"
               }
             }
           }
