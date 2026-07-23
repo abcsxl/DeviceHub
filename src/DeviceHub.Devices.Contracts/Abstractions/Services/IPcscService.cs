@@ -16,7 +16,9 @@ public interface IPcscService : IHardwareService
 
     Task<string?> ResetCardAsync(string readerName, CancellationToken ct = default);
 
-    event EventHandler<CardStatusEventArgs>? CardStatusChanged;
+    event EventHandler<CardStatusEventArgs>? CardInserted;
+
+    event EventHandler<CardStatusEventArgs>? CardRemoved;
 
     event EventHandler<ReaderStatusEventArgs>? ReaderArrival;
 

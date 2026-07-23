@@ -26,7 +26,8 @@ public class MockPcscService : IPcscService, IHardwareEndpointRegistrar, IDispos
     public HardwareStatus Status => _status;
     public void MapEndpoints(IEndpointRouteBuilder app) => PcscEndpoint.MapEndpoints(app);
 
-    public event EventHandler<CardStatusEventArgs>? CardStatusChanged;
+    public event EventHandler<CardStatusEventArgs>? CardInserted;
+    public event EventHandler<CardStatusEventArgs>? CardRemoved;
     public event EventHandler<ReaderStatusEventArgs>? ReaderArrival;
     public event EventHandler<ReaderStatusEventArgs>? ReaderRemoval;
 
@@ -71,6 +72,9 @@ public class MockPcscService : IPcscService, IHardwareEndpointRegistrar, IDispos
             _monitorCts?.Dispose();
             _monitorCts = null;
             _monitorThread = null;
+
+            ReaderRemoval?.Invoke(this, new ReaderStatusEventArgs(MockReaderCl, "removed"));
+            ReaderRemoval?.Invoke(this, new ReaderStatusEventArgs(MockReaderSam, "removed"));
 
             _readerStates.Clear();
             _status = HardwareStatus.Stopped;
@@ -185,7 +189,10 @@ public class MockPcscService : IPcscService, IHardwareEndpointRegistrar, IDispos
                         var newStatus = newCardState ? "card_present" : "empty";
 
                         _logger.LogInformation("[Mock] Card state changed: {Reader} {Old} -> {New}", MockReaderCl, oldStatus, newStatus);
-                        CardStatusChanged?.Invoke(this, new CardStatusEventArgs(MockReaderCl, oldStatus, newStatus));
+                        if (newCardState && !oldState)
+                            CardInserted?.Invoke(this, new CardStatusEventArgs(MockReaderCl, oldStatus, newStatus));
+                        else if (!newCardState && oldState)
+                            CardRemoved?.Invoke(this, new CardStatusEventArgs(MockReaderCl, oldStatus, newStatus));
                     }
                 }
             }

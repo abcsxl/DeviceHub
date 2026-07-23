@@ -112,9 +112,18 @@ try
     var pcscService = app.Services.GetRequiredService<IPcscService>();
     await pcscService.InitAsync();
     registry.Register("Pcsc", pcscService);
-    pcscService.CardStatusChanged += (_, args) =>
+    pcscService.CardInserted += (_, args) =>
     {
-        _ = wsHandler.SendEventAsync("pcsc", "card_status_changed", args)
+        _ = wsHandler.SendEventAsync("pcsc", "card_inserted", args)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    startupLogger.LogError(t.Exception, "Failed to send WebSocket event");
+            }, TaskScheduler.Default);
+    };
+    pcscService.CardRemoved += (_, args) =>
+    {
+        _ = wsHandler.SendEventAsync("pcsc", "card_removed", args)
             .ContinueWith(t =>
             {
                 if (t.IsFaulted)
