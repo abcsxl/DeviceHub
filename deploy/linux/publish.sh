@@ -93,11 +93,16 @@ scripts:
 EOF
   nfpm package -p deb -f "$REPO_ROOT/.nfpm.yaml"
   nfpm package -p rpm -f "$REPO_ROOT/.nfpm.yaml"
+  # RPM ~ → _ for GitHub upload compat (RPM uses ~ for pre-release)
+  for f in "$REPO_ROOT"/devicehub-*.rpm; do
+    [ -f "$f" ] || continue
+    mv "$f" "${f//\~/_}" 2>/dev/null || true
+  done
   mv devicehub_*.deb "$REPO_ROOT/output/"
   mv devicehub-*.rpm "$REPO_ROOT/output/"
   rm -f "$REPO_ROOT/.nfpm.yaml"
-  echo "  已生成: output/DeviceHub-$VERSION-$NFPM_ARCH.deb"
-  echo "  已生成: output/DeviceHub-$VERSION-$NFPM_ARCH.rpm"
+  echo "  已生成: output/devicehub_${VERSION}_${NFPM_ARCH}.deb"
+  echo "  已生成: output/devicehub-${VERSION}-1.${NFPM_ARCH}.rpm"
 fi
 
 # 4. 打包 tar.gz

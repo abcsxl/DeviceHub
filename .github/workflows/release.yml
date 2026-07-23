@@ -98,9 +98,10 @@ jobs:
 
       - name: Install nfpm
         run: |
-          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq nfpm
+          curl -sL "https://github.com/goreleaser/nfpm/releases/latest/download/nfpm_amd64.deb" \
+            -o /tmp/nfpm.deb
+          sudo dpkg -i /tmp/nfpm.deb
+          echo "nfpm $(nfpm --version)"
 
       - name: Set tag
         run: |
@@ -123,6 +124,7 @@ jobs:
           cp -r output/publish/linux-x64/* "$pkgdir/"
           cp deploy/linux/devicehub.service "$pkgdir/"
           cp deploy/linux/install.sh "$pkgdir/"
+          cp deploy/linux/uninstall.sh "$pkgdir/"
           cp deploy/linux/postinst.sh "$pkgdir/"
           cp deploy/linux/prerm.sh "$pkgdir/"
           chmod +x "$pkgdir/install.sh"
@@ -176,6 +178,11 @@ EOF
           nfpm package -p deb -f .nfpm.yaml
           nfpm package -p rpm -f .nfpm.yaml
           mv devicehub_*.deb output/
+          # RPM ~ → _ for GitHub upload compat
+          for f in devicehub-*.rpm; do
+            [ -f "$f" ] || continue
+            mv "$f" "${f//\~/_}" 2>/dev/null || true
+          done
           mv devicehub-*.rpm output/
           rm -f .nfpm.yaml
           cd output
@@ -202,7 +209,6 @@ EOF
           for f in output/devicehub_*.deb output/devicehub_*.deb.sha256 \
                    output/devicehub-*.rpm output/devicehub-*.rpm.sha256; do
             [ -f "$f" ] || continue
-            [[ "$f" == *'~'* ]] && continue
             gh release upload "$TAG" "$f" \
               --repo ${{ github.repository }} \
               --clobber 2>/dev/null || true
@@ -248,11 +254,11 @@ EOF
                 "hash": "$(cat DeviceHub-*-linux-x64.tar.gz.sha256 | head -1 | cut -d' ' -f1)"
               },
               "linux-x64-deb": {
-                "url": "https://github.com/$repo/releases/download/$TAG/DeviceHub_$VERSION_amd64.deb",
-                "hash": "$(cat DeviceHub_*.deb.sha256 | head -1 | cut -d' ' -f1)"
+                "url": "https://github.com/$repo/releases/download/$TAG/devicehub_$VERSION_amd64.deb",
+                "hash": "$(cat devicehub_*.deb.sha256 | head -1 | cut -d' ' -f1)"
               },
               "linux-x64-rpm": {
-                "url": "https://github.com/$repo/releases/download/$TAG/devicehub-$VERSION-1.x86_64.rpm",
+                "url": "https://github.com/$repo/releases/download/$TAG/devicehub-$(echo $VERSION | sed 's/-/_/g')-1.x86_64.rpm",
                 "hash": "$(cat devicehub-*.rpm.sha256 | head -1 | cut -d' ' -f1)"
               }
             }

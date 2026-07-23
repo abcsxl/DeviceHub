@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_NAME="DeviceHub"
+APP_NAME="devicehub"
 APP_DIR="/usr/local/bin/devicehub"
 SERVICE_FILE="devicehub.service"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -126,7 +126,7 @@ check_port() {
 
 # 覆盖安装且使用原端口时跳过检查（步骤 1 会先停止旧服务）
 if [ "$IS_UPGRADE" = true ]; then
-  echo "$MSG_USE_PORT$HTTP_PORT$MESSAGE_PORT_RELEASE"
+  echo "$MSG_USE_PORT$HTTP_PORT$MSG_PORT_RELEASE"
 else
   if check_port $HTTP_PORT; then
     echo "$HTTP_PORT $MSG_PORT_USED"
@@ -185,8 +185,8 @@ chmod +x "$APP_DIR/DeviceHub.Service.Api"
 
 # 3. 配置 HTTP 端口
 echo "$MSG_CONFIG_PORT$HTTP_PORT ..."
-if [ -f "$CONFIG_FILE" ]; then
-  sed -i "s/\"HttpPort\": *[0-9]*/\"HttpPort\": $HTTP_PORT/" "$CONFIG_FILE"
+if [ -f "$APP_DIR/appsettings.json" ]; then
+  sed -i "s/\"HttpPort\": *[0-9]*/\"HttpPort\": $HTTP_PORT/" "$APP_DIR/appsettings.json"
 fi
 
 # 4. 安装 systemd 服务 (条件执行)

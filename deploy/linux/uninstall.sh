@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_NAME="DeviceHub"
+APP_NAME="devicehub"
 APP_DIR="/usr/local/bin/devicehub"
 SERVICE_FILE="devicehub.service"
 
