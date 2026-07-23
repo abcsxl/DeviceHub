@@ -152,6 +152,22 @@ catch (InvalidOperationException)
     startupLogger.LogInformation("IdCard driver not enabled, skipping registration");
 }
 
+var externalHwServices = app.Services.GetServices<IHardwareService>()
+    .Where(s => s.Status != HardwareStatus.Running)
+    .ToArray();
+foreach (var hwSvc in externalHwServices)
+{
+    try
+    {
+        await hwSvc.InitAsync();
+        startupLogger.LogInformation("External driver {Name} initialized", hwSvc.Name);
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogError(ex, "Failed to initialize external driver {Name}", hwSvc.Name);
+    }
+}
+
 app.MapStatusEndpoint()
    .MapConfigEndpoint()
    .MapLogsEndpoint()
