@@ -330,7 +330,7 @@ public sealed class WebSocketHandler : IDisposable
                     await SendErrorAsync(ws, requestId, errorCode, msg);
                     return;
                 }
-                if (result.Sw1 != "90")
+                if (result.Sw1 != "90" || result.Sw2 != "00")
                 {
                     var (code, _) = SwCodeHelper.ClassifySw(result.Sw1 ?? "FF", result.Sw2 ?? "FF");
                     var msg = $"Transmit failed (SW={result.Sw1}{result.Sw2})";
@@ -431,7 +431,8 @@ public sealed class WebSocketHandler : IDisposable
                     {
                         var msg = r.ErrorMessage ?? "Recharge execution failed";
                         if (r.Sw1 != null) msg += $" (SW={r.Sw1}{r.Sw2})";
-                        await SendErrorAsync(ws, requestId, "HARDWARE_ERROR", msg);
+                        var (code, _) = SwCodeHelper.ClassifySw(r.Sw1 ?? "FF", r.Sw2 ?? "FF");
+                        await SendErrorAsync(ws, requestId, code, msg);
                         return;
                     }
                     data = null;
@@ -501,7 +502,8 @@ public sealed class WebSocketHandler : IDisposable
                     {
                         var msg = cr.ErrorMessage ?? "Consume execution failed";
                         if (cr.Sw1 != null) msg += $" (SW={cr.Sw1}{cr.Sw2})";
-                        await SendErrorAsync(ws, requestId, "HARDWARE_ERROR", msg);
+                        var (code, _) = SwCodeHelper.ClassifySw(cr.Sw1 ?? "FF", cr.Sw2 ?? "FF");
+                        await SendErrorAsync(ws, requestId, code, msg);
                         return;
                     }
                     data = null;

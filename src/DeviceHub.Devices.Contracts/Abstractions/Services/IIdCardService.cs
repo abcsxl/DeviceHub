@@ -9,4 +9,8 @@ public interface IIdCardService : IHardwareService
     Task<IdCardInfo?> ReadCardAsync(string? readerName = null, CancellationToken ct = default);
 
     Task<byte[]?> ReadPhotoAsync(string? readerName = null, CancellationToken ct = default);
+
+    event EventHandler<CardStatusEventArgs>? CardInserted;
+
+    event EventHandler<CardStatusEventArgs>? CardRemoved;
 }

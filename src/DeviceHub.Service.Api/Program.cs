@@ -121,6 +121,24 @@ try
                     startupLogger.LogError(t.Exception, "Failed to send WebSocket event");
             }, TaskScheduler.Default);
     };
+    pcscService.ReaderArrival += (_, args) =>
+    {
+        _ = wsHandler.SendEventAsync("pcsc", "reader_arrival", args)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    startupLogger.LogError(t.Exception, "Failed to send WebSocket event");
+            }, TaskScheduler.Default);
+    };
+    pcscService.ReaderRemoval += (_, args) =>
+    {
+        _ = wsHandler.SendEventAsync("pcsc", "reader_removal", args)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    startupLogger.LogError(t.Exception, "Failed to send WebSocket event");
+            }, TaskScheduler.Default);
+    };
     startupLogger.LogInformation("PCSC driver registered");
 }
 catch (InvalidOperationException)
@@ -133,6 +151,24 @@ try
     var printerService = app.Services.GetRequiredService<IPrinterService>();
     await printerService.InitAsync();
     registry.Register("Printer", printerService);
+    printerService.JobCompleted += (_, args) =>
+    {
+        _ = wsHandler.SendEventAsync("printer", "job_completed", args)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    startupLogger.LogError(t.Exception, "Failed to send WebSocket event");
+            }, TaskScheduler.Default);
+    };
+    printerService.JobError += (_, args) =>
+    {
+        _ = wsHandler.SendEventAsync("printer", "job_error", args)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    startupLogger.LogError(t.Exception, "Failed to send WebSocket event");
+            }, TaskScheduler.Default);
+    };
     startupLogger.LogInformation("Printer driver registered");
 }
 catch (InvalidOperationException)
@@ -145,6 +181,24 @@ try
     var idCardService = app.Services.GetRequiredService<IIdCardService>();
     await idCardService.InitAsync();
     registry.Register("IdCard", idCardService);
+    idCardService.CardInserted += (_, args) =>
+    {
+        _ = wsHandler.SendEventAsync("id-card", "card_inserted", args)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    startupLogger.LogError(t.Exception, "Failed to send WebSocket event");
+            }, TaskScheduler.Default);
+    };
+    idCardService.CardRemoved += (_, args) =>
+    {
+        _ = wsHandler.SendEventAsync("id-card", "card_removed", args)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    startupLogger.LogError(t.Exception, "Failed to send WebSocket event");
+            }, TaskScheduler.Default);
+    };
     startupLogger.LogInformation("IdCard driver registered");
 }
 catch (InvalidOperationException)

@@ -830,7 +830,13 @@ function wsSend() {
         <details style="font-size:0.85em;color:#666;margin-bottom:8px">
           <summary>可用事件类型</summary>
           <div style="margin-top:4px;display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">
-            <code>card_status_changed</code><span>卡片状态变更</span>
+            <code>card_status_changed</code><span>卡片插拔 (pcsc)</span>
+            <code>reader_arrival</code><span>读卡器接入 (pcsc)</span>
+            <code>reader_removal</code><span>读卡器移除 (pcsc)</span>
+            <code>card_inserted</code><span>身份证插入 (id-card)</span>
+            <code>card_removed</code><span>身份证拔出 (id-card)</span>
+            <code>job_completed</code><span>打印完成 (printer)</span>
+            <code>job_error</code><span>打印失败 (printer)</span>
           </div>
           <div style="margin-top:4px">多个用逗号分隔，如 <code>card_status_changed</code></div>
         </details>

@@ -10,4 +10,8 @@ public interface IPrinterService : IHardwareService
     Task<bool> PrintTextAsync(string text, string? printerName = null, CancellationToken ct = default);
 
     Task<bool> PrintRawAsync(byte[] data, string? printerName = null, CancellationToken ct = default);
+
+    event EventHandler<PrinterJobEventArgs>? JobCompleted;
+
+    event EventHandler<PrinterJobEventArgs>? JobError;
 }

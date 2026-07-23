@@ -27,6 +27,8 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
     public void MapEndpoints(IEndpointRouteBuilder app) => PcscEndpoint.MapEndpoints(app);
 
     public event EventHandler<CardStatusEventArgs>? CardStatusChanged;
+    public event EventHandler<ReaderStatusEventArgs>? ReaderArrival;
+    public event EventHandler<ReaderStatusEventArgs>? ReaderRemoval;
 
     public PcscService(ILogger<PcscService> logger)
     {
@@ -297,6 +299,7 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
                         {
                             _lastReaderStates[name] = false;
                             _logger.LogInformation("New reader detected: {Reader}", name);
+                            ReaderArrival?.Invoke(this, new ReaderStatusEventArgs(name, "arrived"));
                         }
                     }
 
@@ -306,6 +309,7 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
                         {
                             _lastReaderStates.Remove(name);
                             _logger.LogInformation("Reader removed: {Reader}", name);
+                            ReaderRemoval?.Invoke(this, new ReaderStatusEventArgs(name, "removed"));
                         }
                     }
 

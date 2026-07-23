@@ -15,6 +15,9 @@ public class IdCardService : IIdCardService, IHardwareEndpointRegistrar
     public string Name => "IdCard";
     public HardwareStatus Status => _status;
 
+    public event EventHandler<CardStatusEventArgs>? CardInserted;
+    public event EventHandler<CardStatusEventArgs>? CardRemoved;
+
     public IdCardService(ILogger<IdCardService> logger) => _logger = logger;
 
     public Task InitAsync(CancellationToken ct = default)
@@ -52,6 +55,14 @@ public class IdCardService : IIdCardService, IHardwareEndpointRegistrar
     public Task<IdCardInfo?> ReadCardAsync(string? readerName = null, CancellationToken ct = default)
     {
         _logger.LogInformation("Read ID card from {Reader}", readerName ?? "default");
+
+        // TODO: 集成厂商 SDK 后实现实际读卡逻辑
+        // 以下为占位返回，SDK 集成后应：
+        // 1. 调用 SDK 读卡
+        // 2. SDK 无事件回调时需启动轮询线程检测插拔
+        // 3. 读到卡片后触发 CardInserted
+        // 4. 检测到卡片移除后触发 CardRemoved
+
         return Task.FromResult<IdCardInfo?>(null);
     }
 
