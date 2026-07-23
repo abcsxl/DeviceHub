@@ -194,15 +194,19 @@ EOF
 
       - name: Upload to Release
         run: |
-          uploads=(output/DeviceHub-$VERSION-linux-x64.tar.gz)
-          uploads+=("output/DeviceHub-$VERSION-linux-x64.tar.gz.sha256")
-          for f in output/devicehub_*.deb output/devicehub-*.rpm; do
-            [ -f "$f" ] && uploads+=("$f" "$f.sha256")
-          done
           gh release upload "$TAG" \
-            "${uploads[@]}" \
+            output/DeviceHub-$VERSION-linux-x64.tar.gz \
+            output/DeviceHub-$VERSION-linux-x64.tar.gz.sha256 \
             --repo ${{ github.repository }} \
             --clobber
+          for f in output/devicehub_*.deb output/devicehub_*.deb.sha256 \
+                   output/devicehub-*.rpm output/devicehub-*.rpm.sha256; do
+            [ -f "$f" ] || continue
+            [[ "$f" == *'~'* ]] && continue
+            gh release upload "$TAG" "$f" \
+              --repo ${{ github.repository }} \
+              --clobber 2>/dev/null || true
+          done
 
   generate-versions:
     needs: [build-windows, build-linux]
