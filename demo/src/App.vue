@@ -93,11 +93,27 @@ async function clearConfigStore() {
 const logsLevel = ref('Information')
 const logsTail = ref(50)
 const logsQuery = ref('')
+const logLevelCategory = ref('DeviceHub')
+const logLevelPutLevel = ref('Debug')
 
 async function getLogs() {
   const params = new URLSearchParams({ level: logsLevel.value, tail: String(logsTail.value) })
   if (logsQuery.value) params.set('query', logsQuery.value)
   await call('logs', () => getJson(`/api/logs?${params}`))
+}
+
+async function getLogLevels() {
+  await call('logLevelsGet', () => getJson('/api/logs/levels'))
+}
+
+async function putLogLevel() {
+  if (!logLevelCategory.value || !logLevelPutLevel.value) return
+  await call('logLevelsPut', () => putJson('/api/logs/levels', { category: logLevelCategory.value, level: logLevelPutLevel.value }))
+}
+
+async function delLogLevel() {
+  if (!logLevelCategory.value) return
+  await call('logLevelsDel', () => delJson(`/api/logs/levels?category=${encodeURIComponent(logLevelCategory.value)}`))
 }
 
 // ==============================
@@ -149,6 +165,7 @@ async function resetConfig() {
 // ==============================
 const pcscReaderName = ref('Identiv uTrust 4701 F CL Reader 1')
 const pcscApdu = ref('00A4040008A000000003000000')
+const apduTraceEnabled = ref(false)
 
 async function listReaders() {
   await call('pcscReaders', () => getJson('/api/hardware/pcsc/readers'))
@@ -169,6 +186,16 @@ async function transmit() {
   await call('pcscTransmit', () => postJson(
     `/api/hardware/pcsc/transmit`,
     { readerName: pcscReaderName.value, apdu: pcscApdu.value }))
+}
+
+async function getApduTrace() {
+  await call('pcscApduTraceGet', () => getJson('/api/hardware/pcsc/apdu-trace'))
+}
+
+async function toggleApduTrace() {
+  const enabled = !apduTraceEnabled.value
+  await call('pcscApduTracePut', () => putJson('/api/hardware/pcsc/apdu-trace', { enabled }))
+  apduTraceEnabled.value = enabled
 }
 
 // ==============================
@@ -569,6 +596,30 @@ function wsSend() {
         <pre v-if="results.logs" class="result">{{ results.logs }}</pre>
         <pre v-else-if="errors.logs" class="error-result">{{ errors.logs }}</pre>
         <pre v-else class="placeholder">点击「请求」按钮查看结果</pre>
+
+        <hr />
+        <div class="section-header">
+          <h2>运行时日志级别</h2>
+          <code>GET/PUT/DELETE /api/logs/levels</code>
+        </div>
+        <div class="btn-group">
+          <button class="primary" @click="getLogLevels">GET /api/logs/levels</button>
+        </div>
+        <div class="filter-row">
+          <label>Category <input v-model="logLevelCategory" placeholder="DeviceHub.Cards.KaCyberGoCard" style="width:300px;font-family:monospace" /></label>
+          <label>Level <select v-model="logLevelPutLevel">
+            <option>Trace</option><option>Debug</option><option>Information</option>
+            <option>Warning</option><option>Error</option>
+          </select></label>
+          <button class="primary" @click="putLogLevel">PUT /api/logs/levels</button>
+          <button class="primary" @click="delLogLevel">DELETE /api/logs/levels</button>
+        </div>
+        <pre v-if="results.logLevelsGet" class="result">{{ results.logLevelsGet }}</pre>
+        <pre v-else-if="errors.logLevelsGet" class="error-result">{{ errors.logLevelsGet }}</pre>
+        <pre v-if="results.logLevelsPut" class="result">{{ results.logLevelsPut }}</pre>
+        <pre v-else-if="errors.logLevelsPut" class="error-result">{{ errors.logLevelsPut }}</pre>
+        <pre v-if="results.logLevelsDel" class="result">{{ results.logLevelsDel }}</pre>
+        <pre v-else-if="errors.logLevelsDel" class="error-result">{{ errors.logLevelsDel }}</pre>
       </section>
 
       <!-- ========== DRIVERS ========== -->
@@ -666,6 +717,20 @@ function wsSend() {
         <pre v-if="results.pcscTransmit" class="result">{{ results.pcscTransmit }}</pre>
         <pre v-else class="error-result">{{ errors.pcscTransmit }}</pre>
         </div>
+
+        <hr />
+        <div class="section-header">
+          <h2>APDU 跟踪日志</h2>
+          <code>GET/PUT /api/hardware/pcsc/apdu-trace</code>
+        </div>
+        <div class="btn-group">
+          <button class="primary" @click="getApduTrace">GET /apdu-trace</button>
+          <button class="primary" @click="toggleApduTrace">{{ apduTraceEnabled ? '关闭' : '开启' }} APDU 跟踪</button>
+        </div>
+        <pre v-if="results.pcscApduTraceGet" class="result">{{ results.pcscApduTraceGet }}</pre>
+        <pre v-else-if="errors.pcscApduTraceGet" class="error-result">{{ errors.pcscApduTraceGet }}</pre>
+        <pre v-if="results.pcscApduTracePut" class="result">{{ results.pcscApduTracePut }}</pre>
+        <pre v-else-if="errors.pcscApduTracePut" class="error-result">{{ errors.pcscApduTracePut }}</pre>
       </section>
 
       <!-- ========== TRANSIT CARD ========== -->
