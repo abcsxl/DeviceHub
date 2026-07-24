@@ -10,6 +10,7 @@ using DeviceHub.Devices.Contracts.Abstractions.Services;
 using DeviceHub.Cards.TransitCard;
 using DeviceHub.Cards.TransitCard.Models.Responses;
 using Microsoft.Extensions.Logging;
+using DeviceHub.Service.Api.Models;
 
 namespace DeviceHub.Service.Api.WebSocket;
 
@@ -18,13 +19,21 @@ public sealed class WebSocketHandler : IDisposable
     private readonly ConcurrentDictionary<Guid, ConnectionEntry> _connections = new();
     private readonly SemaphoreSlim _sendSemaphore = new(5, 5);
     private readonly ILogger<WebSocketHandler> _logger;
+    private readonly InMemoryLogProvider _logProvider;
     private bool _disposed;
 
     public int ConnectionCount => _connections.Count;
 
-    public WebSocketHandler(ILogger<WebSocketHandler> logger)
+    public WebSocketHandler(ILogger<WebSocketHandler> logger, InMemoryLogProvider logProvider)
     {
         _logger = logger;
+        _logProvider = logProvider;
+        _logProvider.OnLogEntry += ForwardLogEntry;
+    }
+
+    private async void ForwardLogEntry(LogEntry entry)
+    {
+        await SendEventAsync("log", $"log.{entry.Level.ToLowerInvariant()}", entry);
     }
 
     internal IEnumerable<KeyValuePair<Guid, System.Net.WebSockets.WebSocket>> ActiveConnections
@@ -715,6 +724,8 @@ public sealed class WebSocketHandler : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+
+        _logProvider.OnLogEntry -= ForwardLogEntry;
 
         var snapshot = _connections.ToArray();
         foreach (var (_, entry) in snapshot)

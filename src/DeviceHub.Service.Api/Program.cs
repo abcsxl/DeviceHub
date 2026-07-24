@@ -65,10 +65,16 @@ var logProvider = new InMemoryLogProvider(builder.Configuration);
 builder.Services.AddSingleton(logProvider);
 builder.Logging.AddProvider(logProvider);
 
+if (builder.Configuration.GetValue<bool>("Logging:File:Enabled"))
+    builder.Logging.AddProvider(new FileLogProvider(builder.Configuration));
+
 builder.Services.AddSingleton<DriverRegistry>();
 builder.Services.AddSingleton<ServiceState>();
 builder.Services.AddSingleton<WebSocketHandler>();
 builder.Services.AddSingleton<ConfigStoreService>();
+builder.Services.AddSingleton<DeviceHub.Service.Api.Services.ApduTraceWriter>();
+builder.Services.AddSingleton<DeviceHub.Devices.Contracts.Abstractions.IApduTraceWriter>(sp =>
+    sp.GetRequiredService<DeviceHub.Service.Api.Services.ApduTraceWriter>());
 
 builder.Services.AddPcscService(builder.Configuration);
 builder.Services.AddTransitCardService(builder.Configuration);

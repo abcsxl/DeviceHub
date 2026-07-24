@@ -77,7 +77,11 @@ net stop DeviceHub && net start DeviceHub
 
 ### 日志查看
 
-日志输出到 `%ProgramFiles%\DeviceHub\log.log`（如果配置了文件日志），或通过服务 API `GET /api/logs` 查看最近日志。
+日志输出到 `data/logs/` 目录（位于安装目录下），需在 `appsettings.json` 中将 `Logging:File:Enabled` 设为 `true` 开启文件日志。日志文件按日期滚动：`devicehub-20260724.log`。
+
+或通过服务 API `GET /api/logs` 查看最近日志（无需开启文件日志）。
+
+APDU 通信跟踪日志写入 `data/logs/apdu.log`，通过 `PUT /api/hardware/pcsc/apdu-trace` 运行时开启，默认关闭。
 
 ### 卸载
 

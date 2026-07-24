@@ -1,4 +1,5 @@
 using DeviceHub.Devices.Contracts;
+using DeviceHub.Devices.Contracts.Abstractions;
 using DeviceHub.Devices.Contracts.Abstractions.Services;
 using DeviceHub.Devices.Contracts.Extensions;
 using DeviceHub.Devices.Contracts.Helpers;
@@ -78,14 +79,25 @@ if (service == null) return error;
                 return ApiResponseHelper.Error(code, $"Card returned error (SW={result.Sw1}{result.Sw2})", status);
             }
 
-            return ApiResponseHelper.Ok(new
-            {
-                sw1 = result.Sw1,
-                sw2 = result.Sw2,
-                responseData = result.ResponseData
-            });
+            return ApiResponseHelper.Ok(new { result.Sw1, result.Sw2, responseData = result.ResponseData });
+        });
+
+        group.MapGet("/apdu-trace", (HttpContext context) =>
+        {
+            var trace = context.RequestServices.GetService<IApduTraceWriter>();
+            return ApiResponseHelper.Ok(new { enabled = trace?.IsEnabled ?? false });
+        });
+
+        group.MapPut("/apdu-trace", (ApduTraceToggle toggle, HttpContext context) =>
+        {
+            var trace = context.RequestServices.GetService<IApduTraceWriter>();
+            if (trace == null)
+                return ApiResponseHelper.NotFound("DRIVER_NOT_FOUND", "APDU trace writer not available");
+            trace.SetEnabled(toggle.Enabled);
+            return ApiResponseHelper.Ok(new { enabled = toggle.Enabled });
         });
     }
 
     internal record TransmitRequest(string? ReaderName, string? Apdu);
+    internal record ApduTraceToggle(bool Enabled);
 }

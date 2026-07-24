@@ -45,6 +45,7 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
     };
 
     private readonly ILogger<PcscService> _logger;
+    private readonly IApduTraceWriter? _apduTrace;
     private readonly object _syncLock = new();
     private nint _context;
     private HardwareStatus _status = HardwareStatus.Stopped;
@@ -62,9 +63,10 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
     public event EventHandler<ReaderStatusEventArgs>? ReaderArrival;
     public event EventHandler<ReaderStatusEventArgs>? ReaderRemoval;
 
-    public PcscService(ILogger<PcscService> logger)
+    public PcscService(ILogger<PcscService> logger, IApduTraceWriter? apduTrace = null)
     {
         _logger = logger;
+        _apduTrace = apduTrace;
     }
 
     public Task InitAsync(CancellationToken ct = default)
@@ -218,6 +220,8 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 
     private Task<TransmitResult> TransmitInternal(string readerName, string apdu)
     {
+        _apduTrace?.Write($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{readerName}] >> {apdu}");
+
         var rc = NativeMethods.Connect(_context, readerName,
             NativeMethods.SCardShareShared, NativeMethods.SCardProtocolTx,
             out var hCard, out var protocol);
@@ -225,6 +229,7 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
         if (rc != Success)
         {
             var (errorCode, errorMessage) = MapPcscStatus((uint)rc);
+            _apduTrace?.Write($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{readerName}] << CONNECT ERROR {errorCode}:{errorMessage}");
             return Task.FromResult(new TransmitResult(false,
                 ErrorMessage: errorMessage,
                 ErrorCode: errorCode));
@@ -250,6 +255,7 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
             if (rc != Success)
             {
                 var (errorCode, errorMessage) = MapPcscStatus((uint)rc);
+                _apduTrace?.Write($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{readerName}] << TRANSMIT ERROR {errorCode}:{errorMessage}");
                 return Task.FromResult(new TransmitResult(false,
                     ErrorMessage: errorMessage,
                     ErrorCode: errorCode));
@@ -262,6 +268,8 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
             var data = recvLen > 2
                 ? BytesToHex(recvBuf[..^2])
                 : null;
+
+            _apduTrace?.Write($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{readerName}] << {data ?? ""} {sw1}{sw2}");
 
             return Task.FromResult(new TransmitResult(true, Sw1: sw1, Sw2: sw2, ResponseData: data));
         }
