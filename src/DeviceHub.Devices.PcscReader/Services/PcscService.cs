@@ -12,12 +12,40 @@ namespace DeviceHub.Devices.PcscReader.Services;
 public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 {
     private const uint Success = 0;
+    private const uint ScardEUnknownReader = 0x80100009;
+    private const uint ScardETimeout = 0x8010000A;
+    private const uint ScardESharingViolation = 0x8010000B;
     private const uint ScardENoSmartcard = 0x8010000C;
     private const uint ScardEReaderUnavailable = 0x8010000F;
     private const uint ScardENoService = 0x8010001D;
+    private const uint ScardEReaderUnsupported = 0x8010001A;
     private const uint ScardENoReaderAvailable = 0x8010002E;
+    private const uint ScardECommAborted = 0x80100030;
+    private const uint ScardWRemovedCard = 0x80100069;
+
+    private static (string code, string message) MapPcscStatus(uint rc) => rc switch
+    {
+        0x80100001 => ("HARDWARE_ERROR", "PCSC internal error"),
+        0x80100002 => ("HARDWARE_ERROR", "Operation cancelled"),
+        0x80100003 => ("HARDWARE_ERROR", "Invalid handle"),
+        0x80100004 => ("INVALID_PARAMETERS", "Invalid parameter"),
+        0x80100008 => ("HARDWARE_ERROR", "Insufficient buffer"),
+        0x80100009 => ("READER_NOT_FOUND", "Specified reader is not recognized by the system"),
+        0x8010000A => ("TIMEOUT", "Operation timed out while communicating with reader or card"),
+        0x8010000B => ("READER_NOT_FOUND", "Reader is in use by another application"),
+        0x8010000C => ("CARD_NOT_PRESENT", "No card detected in reader"),
+        0x8010000F => ("READER_NOT_FOUND", "Reader is not currently available"),
+        0x8010001A => ("READER_NOT_FOUND", "Reader type is not supported"),
+        0x8010001D => ("SERVICE_NOT_RUNNING", "Smart card service is not running"),
+        0x8010001E => ("READER_NOT_FOUND", "Reader communication failed or was interrupted"),
+        0x8010002E => ("READER_NOT_FOUND", "No reader available"),
+        0x80100030 => ("READER_NOT_FOUND", "Communication with reader was aborted"),
+        0x80100069 => ("CARD_NOT_PRESENT", "Card was removed during operation"),
+        _ => ("HARDWARE_ERROR", $"Unhandled PCSC error: 0x{rc:X8}")
+    };
 
     private readonly ILogger<PcscService> _logger;
+    private readonly IApduTraceWriter? _apduTrace;
     private readonly object _syncLock = new();
     private nint _context;
     private HardwareStatus _status = HardwareStatus.Stopped;
@@ -35,9 +63,10 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
     public event EventHandler<ReaderStatusEventArgs>? ReaderArrival;
     public event EventHandler<ReaderStatusEventArgs>? ReaderRemoval;
 
-    public PcscService(ILogger<PcscService> logger)
+    public PcscService(ILogger<PcscService> logger, IApduTraceWriter? apduTrace = null)
     {
         _logger = logger;
+        _apduTrace = apduTrace;
     }
 
     public Task InitAsync(CancellationToken ct = default)
@@ -72,14 +101,23 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 
     public Task ShutdownAsync(CancellationToken ct = default)
     {
+        CancellationTokenSource? cts;
+        Thread? monitorThread;
+
         lock (_syncLock)
         {
-            _monitorCts?.Cancel();
-            _monitorThread?.Join(5000);
-            _monitorCts?.Dispose();
+            cts = _monitorCts;
+            monitorThread = _monitorThread;
             _monitorCts = null;
             _monitorThread = null;
+        }
 
+        cts?.Cancel();
+        monitorThread?.Join(5000);
+        cts?.Dispose();
+
+        lock (_syncLock)
+        {
             if (_context != nint.Zero)
             {
                 NativeMethods.ReleaseContext(_context);
@@ -175,36 +213,36 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
         lock (_syncLock)
         {
             if (_context == nint.Zero)
-                return Task.FromResult(new TransmitResult(false, ErrorMessage: "PCSC service not running", ErrorCode: "HARDWARE_ERROR"));
+                return Task.FromResult(new TransmitResult(false, ErrorMessage: "PCSC service not running", ErrorCode: "SERVICE_NOT_RUNNING"));
             return TransmitInternal(readerName, apdu);
         }
     }
 
     private Task<TransmitResult> TransmitInternal(string readerName, string apdu)
     {
+        _apduTrace?.Write($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{readerName}] >> {apdu}");
+
         var rc = NativeMethods.Connect(_context, readerName,
             NativeMethods.SCardShareShared, NativeMethods.SCardProtocolTx,
             out var hCard, out var protocol);
 
         if (rc != Success)
         {
-            var errorCode = (uint)rc switch
-            {
-                ScardENoSmartcard => "CARD_NOT_PRESENT",
-                ScardEReaderUnavailable or ScardENoReaderAvailable => "READER_NOT_FOUND",
-                ScardENoService => "SERVICE_NOT_RUNNING",
-                _ => "HARDWARE_ERROR"
-            };
+            var (errorCode, errorMessage) = MapPcscStatus((uint)rc);
+            _apduTrace?.Write($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{readerName}] << CONNECT ERROR {errorCode}:{errorMessage}");
             return Task.FromResult(new TransmitResult(false,
-                ErrorMessage: $"Failed to connect to reader: 0x{rc:X8}",
+                ErrorMessage: errorMessage,
                 ErrorCode: errorCode));
         }
 
         try
         {
-            var apduBytes = HexToBytes(apdu);
-            if (apduBytes == null)
+            byte[] apduBytes;
+            try { apduBytes = Convert.FromHexString(apdu); }
+            catch (Exception)
+            {
                 return Task.FromResult(new TransmitResult(false, ErrorMessage: "Invalid APDU format", ErrorCode: "INVALID_PARAMETERS"));
+            }
 
             var sendPci = new SCardIORequest { Protocol = protocol, Length = 8 };
             var recvPci = new SCardIORequest { Protocol = protocol, Length = 8 };
@@ -216,14 +254,10 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
 
             if (rc != Success)
             {
-                var errorCode = (uint)rc switch
-                {
-                    ScardENoSmartcard => "CARD_NOT_PRESENT",
-                    ScardEReaderUnavailable or ScardENoReaderAvailable => "READER_NOT_FOUND",
-                    _ => "HARDWARE_ERROR"
-                };
+                var (errorCode, errorMessage) = MapPcscStatus((uint)rc);
+                _apduTrace?.Write($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{readerName}] << TRANSMIT ERROR {errorCode}:{errorMessage}");
                 return Task.FromResult(new TransmitResult(false,
-                    ErrorMessage: $"Transmit failed: 0x{rc:X8}",
+                    ErrorMessage: errorMessage,
                     ErrorCode: errorCode));
             }
 
@@ -234,6 +268,8 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
             var data = recvLen > 2
                 ? BytesToHex(recvBuf[..^2])
                 : null;
+
+            _apduTrace?.Write($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{readerName}] << {data ?? ""} {sw1}{sw2}");
 
             return Task.FromResult(new TransmitResult(true, Sw1: sw1, Sw2: sw2, ResponseData: data));
         }
@@ -381,12 +417,6 @@ public class PcscService : IPcscService, IHardwareEndpointRegistrar, IDisposable
                 Thread.Sleep(5000);
             }
         }
-    }
-
-    private static byte[]? HexToBytes(string hex)
-    {
-        try { return Convert.FromHexString(hex); }
-        catch { throw new ArgumentException($"Invalid hex string: {hex}"); }
     }
 
     private static string BytesToHex(byte[] bytes)

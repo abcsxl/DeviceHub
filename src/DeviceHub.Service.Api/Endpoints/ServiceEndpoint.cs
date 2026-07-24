@@ -1,5 +1,4 @@
 using DeviceHub.Devices.Contracts.Helpers;
-using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
@@ -9,8 +8,7 @@ public static class ServiceEndpoint
     {
         app.MapPost("/api/service/restart", (
             IHostApplicationLifetime lifetime,
-            ILoggerFactory loggerFactory,
-            IStringLocalizer<Program> L) =>
+            ILoggerFactory loggerFactory) =>
         {
             var logger = loggerFactory.CreateLogger("Service");
             logger.LogWarning("Service is about to restart");
@@ -19,7 +17,7 @@ public static class ServiceEndpoint
                 await Task.Delay(1000);
                 lifetime.StopApplication();
             });
-            return ApiResponseHelper.Accepted(new { message = L["ServiceRestarting"].Value });
+            return ApiResponseHelper.Accepted(new { message = "Service will restart in 1 second" });
         });
         return app;
     }

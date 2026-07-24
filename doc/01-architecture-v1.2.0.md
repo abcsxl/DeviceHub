@@ -1,4 +1,4 @@
-# DeviceHub — 架构设计 (v1.1.0)
+# DeviceHub — 架构设计 (v1.2.0)
 
 ## 1. 整体架构
 
@@ -74,7 +74,11 @@ public interface IPcscService : IHardwareService
     Task<ReaderInfo> GetReaderInfoAsync(string readerName, CancellationToken ct = default);
     Task<TransmitResult> TransmitAsync(string readerName, string apdu, CancellationToken ct = default);
     Task<string?> GetAtrAsync(string readerName, CancellationToken ct = default);
-    event EventHandler<CardStatusEventArgs>? CardStatusChanged;
+    Task ResetCardAsync(string readerName, CancellationToken ct = default);
+    event EventHandler<CardStatusEventArgs>? CardInserted;
+    event EventHandler<CardStatusEventArgs>? CardRemoved;
+    event EventHandler<ReaderStatusEventArgs>? ReaderArrival;
+    event EventHandler<ReaderStatusEventArgs>? ReaderRemoval;
 }
 ```
 
@@ -93,7 +97,7 @@ public record CardInfo(
     string[]? OtherData
 );
 
-public record BalanceInfo(int Balance, string Currency = "CNY");
+public record BalanceInfo(int Balance);
 
 public record TransactionRecord(
     string Type, int Amount, DateTime Timestamp, string? Location
@@ -113,7 +117,7 @@ public interface ITransitCardService
     Task<CardInfo> ReadCardInfoAsync(string? readerName = null, CancellationToken ct = default);
     Task<BalanceInfo> ReadBalanceAsync(string? readerName = null, CancellationToken ct = default);
     Task<List<TransactionRecord>> ReadTransactionsAsync(int count = 10, string? readerName = null, CancellationToken ct = default);
-    Task<RechargeInitResult> RechargeInitAsync(decimal amount, string? readerName = null, CancellationToken ct = default);
+    Task<RechargeInitResult> RechargeInitAsync(int amount, string? readerName = null, CancellationToken ct = default);
     Task<RechargeResult> RechargeExecuteAsync(string sessionId, string macSignature, CancellationToken ct = default);
 }
 ```
@@ -283,6 +287,9 @@ public static IServiceCollection LoadExternalDrivers(
     }
   },
   "Logging": {
+    "File": {
+      "Enabled": false
+    },
     "RingBufferSize": 1000,
     "LogLevel": {
       "Default": "Information",
@@ -297,16 +304,41 @@ public static IServiceCollection LoadExternalDrivers(
 | Server.HttpPort | int | 5000 | HTTP 监听端口。启动时自动检测冲突，若被占用则尝试 +1 至 +10，均被占用则启动失败 |
 | Server.WebSocketPath | string | "/ws" | WebSocket 端点路径 |
 | Drivers.*.Enabled | bool | false | 是否启用该硬件 |
+| Drivers:Pcsc:ApduTraceEnabled | bool | false | APDU 跟踪日志开关，默认关闭 |
 | Logging.RingBufferSize | int | 1000 | 日志环形缓冲区大小 |
+| Logging.File.Enabled | bool | false | 是否启用文件日志持久化 |
 
 > 配置修改通过 PUT `/api/config` 接口完成，不建议手动编辑 `appsettings.json`。
 
 ## 7. 日志
 
+### 内存日志
 - 内存环形缓冲区（`ConcurrentQueue` + `ILoggerProvider`）
 - 保留最近 N 条（默认 1000，可通过 `Logging:RingBufferSize` 配置）
 - 管理端点 GET `/api/logs?level=ERROR&tail=100` 查询
-- 无持久化，服务重启后日志清空
+- 服务重启后内存日志清空
+
+### 文件日志
+- 可选持久化，通过 `Logging:File:Enabled: true` 开启
+- 文件路径：`data/logs/devicehub-{yyyyMMdd}.log`，每日自动滚动
+- 级别过滤遵循 `Logging:LogLevel` 配置，与内存日志一致
+
+### 运行时日志级别
+- 通过 `PUT /api/logs/levels` 运行时覆盖任意类别的日志级别，立即生效
+- `DELETE /api/logs/levels` 移除覆盖，恢复配置文件中的级别
+- 覆盖仅在运行时有效，重启后丢失
+
+### APDU 跟踪日志
+- 独立日志文件 `data/logs/apdu.log`，仅记录 APDU 收发数据，与普通日志隔离
+- 通过 `Drivers:Pcsc:ApduTraceEnabled` 配置或运行时 `PUT /api/hardware/pcsc/apdu-trace` 开关
+- 默认关闭，零性能开销（空检查后跳过）
+- 记录格式：`>> {APDU}`（发送） / `<< {响应数据} {SW}`（接收），含错误路径
+- 适用于线上排查 APDU 通信问题，无需全局开启 Debug 级别
+
+### WS 实时日志推送
+- 订阅 `?events=log.*` 通过 WebSocket 实时接收日志事件
+- 事件名：`log.debug`、`log.info`、`log.warning`、`log.error`
+- 数据字段：`timestamp`、`level`、`category`、`message`、`exception`
 
 ## 8. 部署
 
@@ -318,16 +350,36 @@ public static IServiceCollection LoadExternalDrivers(
 
 ## 9. 错误码
 
+### 通用错误码
+适用于所有硬件接口。
+
 | 错误码 | HTTP 状态 | 说明 |
 |--------|-----------|------|
-| `DRIVER_NOT_FOUND` | 404 | 驱动未注册 |
-| `INVALID_PARAMETERS` | 400 | 参数错误 |
-| `HARDWARE_ERROR` | 500 | 硬件错误 |
-| `TIMEOUT` | 408 | 操作超时 |
+| `DRIVER_NOT_FOUND` | 503 | 驱动不存在或未注册 |
+| `SERVICE_NOT_RUNNING` | 503 | 服务未运行 |
+| `INVALID_PARAMETERS` | 400 | 请求参数错误或缺少必填字段 |
+| `INVALID_ACTION` | 400 | 操作的 action 不支持 |
+| `CARD_NOT_PRESENT` | 404 | 读卡器中无卡片或卡片已移除 |
+| `READER_NOT_FOUND` | 404 | 读卡器未连接、已断开或被占用 |
+| `PRINTER_NOT_FOUND` | 404 | 打印机不存在或未连接 |
+| `IDCARD_NOT_FOUND` | 404 | 身份证阅读器不存在或未连接 |
+| `TIMEOUT` | 408 | 硬件操作超时 |
+| `HARDWARE_ERROR` | 500 | 未分类硬件异常 |
+
+### PCSC 专有错误码
+
+| 错误码 | HTTP 状态 | 说明 |
+|--------|-----------|------|
+| `FILE_NOT_FOUND` | 404 | 文件未找到（SW=6A82/6A88） |
+| `UNSUPPORTED_COMMAND` | 400 | 不支持的命令（SW=6D00/6E00） |
+| `SECURITY_ERROR` | 403 | 安全状态不满足（SW=6982/6985/6988） |
+| `INVALID_DATA` | 400 | 数据无效（SW=6A80/6984） |
+| `CARD_FULL` | 507 | 卡片存储已满（SW=6A84） |
 
 ---
 
 ## 版本历史
+- v1.2.0 (2026-07-24): 日志架构扩展：新增文件日志、运行时日志级别覆盖、APDU 跟踪日志、WS 实时日志推送；更新 IPcscService 接口（CardStatusChanged → CardInserted/CardRemoved + ReaderArrival/ReaderRemoval）；BalanceInfo 移除 Currency 字段；TransitCard amount 改为 int；错误码表更新为通用 + PCSC 专有双层结构；配置模型新增 Logging.File.Enabled 和 Drivers:Pcsc:ApduTraceEnabled
 - v1.1.0 (2026-07-24): 移除多语言支持；新增互联互通卡（TransitCard）协议封装 + DriverLoader 插件加载机制 + Contracts NuGet 发布
 - v1.0.3 (2026-05-21): 新增 PCSC Mock 模式支持，安装包多语言选择（Linux）
 - v1.0.2 (2026-05-21): 增加多语言支持（i18n），默认英语，支持中文简体

@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using DeviceHub.Devices.Contracts.Helpers;
 using DeviceHub.Service.Api.Models;
-using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
@@ -21,13 +20,12 @@ public static class DriversEndpoint
             DriverRegistry registry,
             IWebHostEnvironment env,
             IConfiguration config,
-            ILoggerFactory loggerFactory,
-            IStringLocalizer<Program> L) =>
+            ILoggerFactory loggerFactory) =>
         {
             var logger = loggerFactory.CreateLogger("Drivers");
             var entry = registry.Get(name);
             if (entry == null)
-                return ApiResponseHelper.NotFound("DRIVER_NOT_FOUND", L["DriverNotFound", name].Value);
+                return ApiResponseHelper.NotFound("DRIVER_NOT_FOUND", $"Driver '{name}' is not registered");
 
             entry.Enabled = true;
             try
@@ -49,13 +47,12 @@ public static class DriversEndpoint
             DriverRegistry registry,
             IWebHostEnvironment env,
             IConfiguration config,
-            ILoggerFactory loggerFactory,
-            IStringLocalizer<Program> L) =>
+            ILoggerFactory loggerFactory) =>
         {
             var logger = loggerFactory.CreateLogger("Drivers");
             var entry = registry.Get(name);
             if (entry == null)
-                return ApiResponseHelper.NotFound("DRIVER_NOT_FOUND", L["DriverNotFound", name].Value);
+                return ApiResponseHelper.NotFound("DRIVER_NOT_FOUND", $"Driver '{name}' is not registered");
 
             entry.Enabled = false;
             try

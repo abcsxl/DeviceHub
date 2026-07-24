@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using DeviceHub.Devices.Contracts;
 using DeviceHub.Devices.Contracts.Helpers;
-using Microsoft.Extensions.Localization;
 
 namespace DeviceHub.Service.Api.Endpoints;
 
@@ -29,8 +28,7 @@ public static class ConfigEndpoint
             AppConfig update,
             IConfiguration config,
             IWebHostEnvironment env,
-            ILoggerFactory loggerFactory,
-            IStringLocalizer<Program> L) =>
+            ILoggerFactory loggerFactory) =>
         {
             var logger = loggerFactory.CreateLogger("Config");
             var current = BindConfig(config);
@@ -75,11 +73,10 @@ public static class ConfigEndpoint
         app.MapPost("/api/config/reset", async (
             IConfiguration config,
             IWebHostEnvironment env,
-            ILoggerFactory loggerFactory,
-            IStringLocalizer<Program> L) =>
+            ILoggerFactory loggerFactory) =>
         {
             if (_defaultConfigJson == null)
-                return ApiResponseHelper.Error("NO_DEFAULT_CONFIG", L["NoDefaultConfig"].Value);
+                return ApiResponseHelper.Error("NO_DEFAULT_CONFIG", "No default configuration available");
 
             var logger = loggerFactory.CreateLogger("Config");
             var configPath = Path.Combine(env.ContentRootPath, "appsettings.json");

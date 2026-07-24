@@ -32,11 +32,17 @@ if (service == null) return error;
             if (string.IsNullOrEmpty(req.Text))
                 return ApiResponseHelper.Error("INVALID_PARAMETERS", "text is required", 400);
 
-            var ok = await service.PrintTextAsync(req.Text, req.PrinterName);
-            if (!ok)
-                return ApiResponseHelper.Error("PRINT_FAILED", "Print failed", 500);
-
-            return ApiResponseHelper.Ok();
+            try
+            {
+                var ok = await service.PrintTextAsync(req.Text, req.PrinterName);
+                if (!ok)
+                    return ApiResponseHelper.Error("HARDWARE_ERROR", "Print failed", 500);
+                return ApiResponseHelper.Ok();
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "PRINTER_NOT_FOUND")
+            {
+                return ApiResponseHelper.Error("PRINTER_NOT_FOUND", "No printer available", 404);
+            }
         });
 
         group.MapPost("/print-raw", async (PrintRawRequest req, HttpContext context) =>
@@ -45,14 +51,20 @@ if (service == null) return error;
 if (service == null) return error;
 
             if (string.IsNullOrEmpty(req.Data) || req.Data.Length % 2 != 0)
-                return ApiResponseHelper.Error("INVALID_DATA", "Data must be a valid hex string", 400);
+                return ApiResponseHelper.Error("INVALID_PARAMETERS", "Data must be a valid hex string", 400);
 
             var data = Convert.FromHexString(req.Data);
-            var ok = await service.PrintRawAsync(data, req.PrinterName);
-            if (!ok)
-                return ApiResponseHelper.Error("PRINT_FAILED", "Print failed", 500);
-
-            return ApiResponseHelper.Ok();
+            try
+            {
+                var ok = await service.PrintRawAsync(data, req.PrinterName);
+                if (!ok)
+                    return ApiResponseHelper.Error("HARDWARE_ERROR", "Print failed", 500);
+                return ApiResponseHelper.Ok();
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "PRINTER_NOT_FOUND")
+            {
+                return ApiResponseHelper.Error("PRINTER_NOT_FOUND", "No printer available", 404);
+            }
         });
     }
 
