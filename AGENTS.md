@@ -53,7 +53,7 @@
 ## 源码位置
 - 架构设计：`doc/01-architecture-v1.1.0.md`（最新版）
 - API 规范：`doc/02-api-specification-v1.3.0.md`（最新版）
-- 部署打包：`doc/03-packaging-v1.1.0.md`（最新版）
+- 安装部署：`doc/03-installation-guide-v1.0.0.md`（最新版）
 - 跨平台/国产化：`doc/04-cross-platform-v1.0.0.md`
 - 测试指南：`doc/05-testing-v1.1.0.md`（最新版）
 - Vue demo：`demo/`（README 见 `demo/README.md`）
