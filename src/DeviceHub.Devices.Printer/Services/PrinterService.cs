@@ -113,7 +113,7 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
         }
     }
 
-    private string? ResolvePrinterName(string? printerName)
+    private string ResolvePrinterName(string? printerName)
     {
         if (!string.IsNullOrEmpty(printerName))
             return printerName;
@@ -125,7 +125,11 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
                 return name;
         }
 
-        return System.Drawing.Printing.PrinterSettings.InstalledPrinters.Cast<string>().FirstOrDefault();
+        var first = System.Drawing.Printing.PrinterSettings.InstalledPrinters.Cast<string>().FirstOrDefault();
+        if (first != null)
+            return first;
+
+        throw new InvalidOperationException("PRINTER_NOT_FOUND");
     }
 
     private static void EnumerateWindowsPrinters(List<PrinterInfo> printers)
@@ -144,7 +148,7 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
         }
     }
 
-    private static void EnumerateLinuxPrinters(List<PrinterInfo> printers)
+    private void EnumerateLinuxPrinters(List<PrinterInfo> printers)
     {
         try
         {
@@ -166,8 +170,9 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
                     printers.Add(new PrinterInfo(parts[0], "ready", parts.Length > 1 && parts[1] == "accepting"));
             }
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to enumerate printers via lpstat");
         }
     }
 
@@ -224,34 +229,42 @@ public class PrinterService : IPrinterService, IHardwareEndpointRegistrar
             var docName = Marshal.StringToHGlobalUni("DeviceHub Print Job");
             var dataType = Marshal.StringToHGlobalUni("RAW");
 
-            var docInfo = new DOC_INFO_1
-            {
-                pDocName = docName,
-                pOutputFile = nint.Zero,
-                pDatatype = dataType
-            };
-
-            if (StartDocPrinter(hPrinter, 1, ref docInfo) == 0)
-                return false;
-
             try
             {
-                if (StartPagePrinter(hPrinter) == 0)
+                var docInfo = new DOC_INFO_1
+                {
+                    pDocName = docName,
+                    pOutputFile = nint.Zero,
+                    pDatatype = dataType
+                };
+
+                if (StartDocPrinter(hPrinter, 1, ref docInfo) == 0)
                     return false;
 
                 try
                 {
-                    if (WritePrinter(hPrinter, data, data.Length, out _) == 0)
+                    if (StartPagePrinter(hPrinter) == 0)
                         return false;
+
+                    try
+                    {
+                        if (WritePrinter(hPrinter, data, data.Length, out _) == 0)
+                            return false;
+                    }
+                    finally
+                    {
+                        EndPagePrinter(hPrinter);
+                    }
                 }
                 finally
                 {
-                    EndPagePrinter(hPrinter);
+                    EndDocPrinter(hPrinter);
                 }
             }
             finally
             {
-                EndDocPrinter(hPrinter);
+                Marshal.FreeHGlobal(docName);
+                Marshal.FreeHGlobal(dataType);
             }
 
             return true;

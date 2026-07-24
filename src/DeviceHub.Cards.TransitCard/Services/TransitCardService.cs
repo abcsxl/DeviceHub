@@ -127,8 +127,10 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         var macHex = macSignature.Length % 2 == 0 ? macSignature : macSignature;
         var rechargeApdu = session.UnsignedApdu[..^16] + macHex;
         var result = await TransmitHex(session.ReaderName, rechargeApdu, ct);
+        if (!result.Success || result.Sw1 != SwConstants.SuccessPrefix)
+            throw new Exception($"Recharge execute failed (SW={result.Sw1}{result.Sw2})");
 
-        return new RechargeResult(result.Success, result.Sw1, result.Sw2);
+        return new RechargeResult(true, result.Sw1, result.Sw2);
     }
 
     public async Task<ConsumeInitResponse> ConsumeInitAsync(int dealflag, int keyindex, int amount, string termainno, string? readerName = null, CancellationToken ct = default)
@@ -176,8 +178,10 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
 
         var consumeApdu = ApduBuilder.DebitForPurchase(termdealno, dealtime, mac1);
         var result = await TransmitHex(session.ReaderName, consumeApdu, ct);
+        if (!result.Success || result.Sw1 != SwConstants.SuccessPrefix)
+            throw new Exception($"Consume execute failed (SW={result.Sw1}{result.Sw2})");
 
-        return new ConsumeResult(result.Success, result.Sw1, result.Sw2);
+        return new ConsumeResult(true, result.Sw1, result.Sw2);
     }
 
     private async Task<string> ResolveReaderName(string? readerName, CancellationToken ct)
@@ -198,17 +202,21 @@ public class TransitCardService : ITransitCardService, IHardwareEndpointRegistra
         if (!result.Success || result.Sw1 != SwConstants.SuccessPrefix)
         {
             _logger.LogWarning("SELECT AID failed for {Reader}: SW={Sw1}{Sw2} ErrorCode={EC}", readerName, result.Sw1, result.Sw2, result.ErrorCode);
-            if (!result.Success && result.ErrorCode != null)
-                throw new InvalidOperationException(result.ErrorCode);
-            throw new InvalidOperationException($"SELECT transit card applet failed (SW={result.Sw1}{result.Sw2})");
+            var msg = !result.Success && result.ErrorCode != null && !string.IsNullOrEmpty(result.ErrorMessage)
+                ? $"{result.ErrorCode}:{result.ErrorMessage}"
+                : $"{result.ErrorCode ?? "HARDWARE_ERROR"}";
+            throw new InvalidOperationException(msg);
         }
     }
 
     private async Task<TransmitResult> TransmitHex(string readerName, string apdu, CancellationToken ct)
     {
         var result = await _pcsc.TransmitAsync(readerName, apdu, ct);
-        if (!result.Success && result.ErrorCode != null)
-            throw new InvalidOperationException(result.ErrorCode);
+        if (!result.Success)
+        {
+            var msg = string.IsNullOrEmpty(result.ErrorMessage) ? (result.ErrorCode ?? "HARDWARE_ERROR") : $"{result.ErrorCode ?? "HARDWARE_ERROR"}:{result.ErrorMessage}";
+            throw new InvalidOperationException(msg);
+        }
         return result;
     }
 

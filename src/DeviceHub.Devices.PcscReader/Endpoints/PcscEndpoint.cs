@@ -66,23 +66,15 @@ if (service == null) return error;
             if (!result.Success)
             {
                 var code = result.ErrorCode ?? "HARDWARE_ERROR";
-                var status = code switch
-                {
-                    "CARD_NOT_PRESENT" => 404,
-                    "READER_NOT_FOUND" => 404,
-                    "SERVICE_NOT_RUNNING" => 503,
-                    "INVALID_PARAMETERS" => 400,
-                    _ => 500
-                };
                 var msg = result.ErrorMessage ?? "Unknown error";
                 if (result.Sw1 != null)
                     msg += $" (SW={result.Sw1}{result.Sw2})";
-                return ApiResponseHelper.Error(code, msg, status);
+                return ApiResponseHelper.Error(code, msg, ErrorCodeHelper.GetHttpStatus(code));
             }
 
             if (result.Sw1 != "90" || result.Sw2 != "00")
             {
-                var (code, status) = SwCodeHelper.ClassifySw(result.Sw1!, result.Sw2!);
+                var (code, status) = SwCodeHelper.ClassifySw(result.Sw1 ?? "FF", result.Sw2 ?? "FF");
                 return ApiResponseHelper.Error(code, $"Card returned error (SW={result.Sw1}{result.Sw2})", status);
             }
 

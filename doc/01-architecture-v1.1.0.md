@@ -308,20 +308,7 @@ public static IServiceCollection LoadExternalDrivers(
 - 管理端点 GET `/api/logs?level=ERROR&tail=100` 查询
 - 无持久化，服务重启后日志清空
 
-## 8. 多语言支持
-
-- 默认语言：英语（en-US）
-- 支持语言：中文简体（zh-CN）
-- 实现方式：ASP.NET Core `RequestLocalization` 中间件 + `.resx` 资源文件
-- 语言检测优先级：
-  1. `Accept-Language` 请求头（如 `zh-CN` 或 `en-US`）
-  2. 查询字符串 `?culture=zh-CN`
-  3. 默认回退到 en-US
-- 资源文件位置：`src/DeviceHub.Service.Api/Resources/Strings.resx`（默认英语）和 `Strings.zh-CN.resx`（中文）
-- 所有用户可见文本（错误消息、提示信息等）必须通过 `IStringLocalizer<Program>` 获取
-- 新增字符串时，必须同时更新两个资源文件
-
-## 9. 部署
+## 8. 部署
 
 | 平台 | 托管方式 | 打包 |
 |------|----------|------|
@@ -329,7 +316,7 @@ public static IServiceCollection LoadExternalDrivers(
 | Linux | `UseSystemd()` + systemd service | 提供 .service 模板 |
 | 通用 | 命令行直接运行 | `dotnet publish` 自包含单文件 |
 
-## 10. 错误码
+## 9. 错误码
 
 | 错误码 | HTTP 状态 | 说明 |
 |--------|-----------|------|
@@ -341,7 +328,7 @@ public static IServiceCollection LoadExternalDrivers(
 ---
 
 ## 版本历史
-- v1.1.0 (2026-05-22): 新增互联互通卡（TransitCard）协议封装 + DriverLoader 插件加载机制 + Contracts NuGet 发布
+- v1.1.0 (2026-07-24): 移除多语言支持；新增互联互通卡（TransitCard）协议封装 + DriverLoader 插件加载机制 + Contracts NuGet 发布
 - v1.0.3 (2026-05-21): 新增 PCSC Mock 模式支持，安装包多语言选择（Linux）
 - v1.0.2 (2026-05-21): 增加多语言支持（i18n），默认英语，支持中文简体
 - v1.0.1 (2026-05-20): 端口冲突自动检测与处理 + 配置模型增加 LogLevel + 修复 6 个 P0 bug

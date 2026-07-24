@@ -84,11 +84,6 @@
 - 注释语言：中文
 - 禁止 Unicode 装饰符号（× ≥ → ¥ 等语义符号不受限）
 - 一次性交干净代码，不留明显可预见的缺陷
-- **多语言支持**：默认英语（en-US），支持中文简体（zh-CN）
-  - 所有用户可见文本必须通过 `IStringLocalizer<Program>` 获取
-  - 资源文件位于 `src/DeviceHub.Service.Api/Resources/Strings.resx`（默认英语）和 `Strings.zh-CN.resx`（中文）
-  - 新增字符串时，必须同时更新两个资源文件
-  - 扩展方法位于 `Extensions/LocalizationExtensions.cs`
 
 ## REST 响应格式
 所有硬件及系统 API 端点统一使用 `ApiResponse<T>` 格式：

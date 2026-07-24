@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { getJson, putJson, postJson, delJson, setLanguage } from './api'
+import { getJson, putJson, postJson, delJson } from './api'
 
 type Tab = 'status' | 'config' | 'config-store' | 'logs' | 'drivers' | 'service' | 'health' | 'pcsc' | 'transitcard' | 'printer' | 'ws'
 
@@ -18,12 +18,6 @@ const tabs: { key: Tab; label: string }[] = [
   { key: 'printer', label: 'PRINTER' },
   { key: 'ws', label: 'WS' },
 ]
-
-const lang = ref('en-US')
-function changeLang(e: Event) {
-  lang.value = (e.target as HTMLSelectElement).value
-  setLanguage(lang.value)
-}
 
 const results = reactive<Record<string, string>>({})
 const errors = reactive<Record<string, string>>({})
@@ -448,10 +442,6 @@ function wsSend() {
     <header>
       <h1>DeviceHub Demo</h1>
       <span class="tagline">接口测试工具</span>
-      <select class="lang-select" :value="lang" @change="changeLang">
-        <option value="en-US">English</option>
-        <option value="zh-CN">中文</option>
-      </select>
       <span class="hint">→ 确保后端已在 localhost:5000 运行</span>
     </header>
 
@@ -894,7 +884,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 header { display: flex; align-items: baseline; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
 header h1 { font-size: 20px; }
 .tagline { color: #888; font-size: 13px; }
-.lang-select { padding: 2px 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; cursor: pointer; }
 .hint { color: #999; font-size: 12px; margin-left: auto; }
 
 /* tabs */

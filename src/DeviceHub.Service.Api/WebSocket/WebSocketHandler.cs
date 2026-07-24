@@ -9,7 +9,7 @@ using DeviceHub.Devices.Contracts.Abstractions.Services;
 
 using DeviceHub.Cards.TransitCard;
 using DeviceHub.Cards.TransitCard.Models.Responses;
-using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 
 namespace DeviceHub.Service.Api.WebSocket;
 
@@ -17,14 +17,14 @@ public sealed class WebSocketHandler : IDisposable
 {
     private readonly ConcurrentDictionary<Guid, ConnectionEntry> _connections = new();
     private readonly SemaphoreSlim _sendSemaphore = new(5, 5);
-    private readonly IStringLocalizer<Program> _localizer;
+    private readonly ILogger<WebSocketHandler> _logger;
     private bool _disposed;
 
     public int ConnectionCount => _connections.Count;
 
-    public WebSocketHandler(IStringLocalizer<Program> localizer)
+    public WebSocketHandler(ILogger<WebSocketHandler> logger)
     {
-        _localizer = localizer;
+        _logger = logger;
     }
 
     internal IEnumerable<KeyValuePair<Guid, System.Net.WebSockets.WebSocket>> ActiveConnections
@@ -64,7 +64,7 @@ public sealed class WebSocketHandler : IDisposable
             if (!context.WebSockets.IsWebSocketRequest)
             {
                 context.Response.StatusCode = 400;
-                await context.Response.WriteAsync(_localizer["ExpectedWebSocketRequest"]);
+                await context.Response.WriteAsync("Expected a WebSocket request");
                 return;
             }
 
@@ -78,8 +78,9 @@ public sealed class WebSocketHandler : IDisposable
             {
                 await HandleConnectionAsync(connectionId, ws, context.RequestServices);
             }
-            catch (WebSocketException)
+            catch (WebSocketException ex)
             {
+                _logger.LogDebug("WebSocket connection closed unexpectedly: {Message}", ex.Message);
             }
             finally
             {
@@ -210,7 +211,7 @@ public sealed class WebSocketHandler : IDisposable
 
             if (string.IsNullOrEmpty(target) || string.IsNullOrEmpty(action))
             {
-                await SendErrorAsync(ws, requestId!, "INVALID_PARAMETERS", _localizer["TargetAndActionRequired"]);
+                await SendErrorAsync(ws, requestId!, "INVALID_PARAMETERS", "target and action are required");
                 return;
             }
 
@@ -239,25 +240,25 @@ public sealed class WebSocketHandler : IDisposable
                         {
                             try
                             {
-                                await handler.TryHandleAsync(ws, action, parameters, requestId!, services);
+                                handled = await handler.TryHandleAsync(ws, action, parameters, requestId!, services);
                             }
                             catch (Exception ex)
                             {
                                 await SendErrorAsync(ws, requestId!, "HARDWARE_ERROR", ex.Message);
+                                handled = true;
                             }
-                            handled = true;
                             break;
                         }
                     }
                     if (!handled)
-                        await SendErrorAsync(ws, requestId!, "INVALID_ACTION", string.Format(_localizer["UnknownTarget"], target));
+                        await SendErrorAsync(ws, requestId!, "INVALID_ACTION", string.Format("Unknown target: {0}", target));
                     break;
                 }
             }
         }
         catch (JsonException)
         {
-            await SendErrorAsync(ws, null, "INVALID_PARAMETERS", _localizer["InvalidJson"]);
+            await SendErrorAsync(ws, null, "INVALID_PARAMETERS", "Invalid JSON");
         }
     }
 
@@ -268,7 +269,7 @@ public sealed class WebSocketHandler : IDisposable
         var pcsc = services.GetService<IPcscService>();
         if (pcsc == null)
         {
-            await SendErrorAsync(ws, requestId, "DRIVER_NOT_FOUND", _localizer["PcscDriverNotRegistered"]);
+            await SendErrorAsync(ws, requestId, "DRIVER_NOT_FOUND", "PCSC driver is not registered");
             return;
         }
 
@@ -285,7 +286,7 @@ public sealed class WebSocketHandler : IDisposable
                 var readerName = GetParam(parameters, "readerName");
                 if (string.IsNullOrEmpty(readerName))
                 {
-                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer["ReaderNameRequired"]);
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "readerName is required");
                     return;
                 }
                 var info = await pcsc.GetReaderInfoAsync(readerName);
@@ -298,13 +299,13 @@ public sealed class WebSocketHandler : IDisposable
                 var readerName = GetParam(parameters, "readerName");
                 if (string.IsNullOrEmpty(readerName))
                 {
-                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer["ReaderNameRequired"]);
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "readerName is required");
                     return;
                 }
                 var atr = await pcsc.GetAtrAsync(readerName);
                 if (atr == null)
                 {
-                    await SendErrorAsync(ws, requestId, "CARD_NOT_PRESENT", _localizer["CardNotPresent"]);
+                    await SendErrorAsync(ws, requestId, "CARD_NOT_PRESENT", "No card present in reader");
                     return;
                 }
                 data = new { atr };
@@ -317,14 +318,14 @@ public sealed class WebSocketHandler : IDisposable
                 var apdu = GetParam(parameters, "apdu");
                 if (string.IsNullOrEmpty(readerName) || string.IsNullOrEmpty(apdu))
                 {
-                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", _localizer["ReaderNameAndApduRequired"]);
+                    await SendErrorAsync(ws, requestId, "INVALID_PARAMETERS", "readerName and apdu are required");
                     return;
                 }
                 var result = await pcsc.TransmitAsync(readerName, apdu);
                 if (!result.Success)
                 {
                     var errorCode = result.ErrorCode ?? "HARDWARE_ERROR";
-                    var msg = result.ErrorMessage ?? _localizer["TransmitFailed"];
+                    var msg = result.ErrorMessage ?? "Transmit failed";
                     if (result.Sw1 != null)
                         msg += $" (SW={result.Sw1}{result.Sw2})";
                     await SendErrorAsync(ws, requestId, errorCode, msg);
@@ -342,7 +343,7 @@ public sealed class WebSocketHandler : IDisposable
             }
 
             default:
-                await SendErrorAsync(ws, requestId, "INVALID_ACTION", string.Format(_localizer["UnknownPcscAction"], action));
+                await SendErrorAsync(ws, requestId, "INVALID_ACTION", string.Format("Unknown pcsc action: {0}", action));
                 return;
         }
 
@@ -517,7 +518,8 @@ public sealed class WebSocketHandler : IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            await SendErrorAsync(ws, requestId, "CARD_NOT_PRESENT", ex.Message);
+            var (code, msg) = ErrorCodeHelper.ParseTransmitError(ex.Message);
+            await SendErrorAsync(ws, requestId, code, msg);
             return;
         }
 
@@ -692,10 +694,7 @@ public sealed class WebSocketHandler : IDisposable
             if (ws.State == WebSocketState.Open)
                 await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
         }
-        catch (ObjectDisposedException)
-        {
-        }
-        catch (WebSocketException)
+        catch (Exception ex) when (ex is ObjectDisposedException or WebSocketException)
         {
         }
     }
@@ -726,12 +725,7 @@ public sealed class WebSocketHandler : IDisposable
                 {
                     var ws = entry.Socket;
                     var closeCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                    _ = ws.CloseOutputAsync(WebSocketCloseStatus.EndpointUnavailable, "Server shutting down", closeCts.Token)
-                        .ContinueWith(t =>
-                        {
-                            try { ws.Dispose(); } catch { }
-                            closeCts.Dispose();
-                        }, TaskContinuationOptions.ExecuteSynchronously);
+                    _ = CloseSocketAsync(ws, closeCts);
                 }
                 else
                 {
@@ -744,6 +738,22 @@ public sealed class WebSocketHandler : IDisposable
         }
 
         _sendSemaphore.Dispose();
+    }
+
+    private static async Task CloseSocketAsync(System.Net.WebSockets.WebSocket ws, CancellationTokenSource cts)
+    {
+        using (cts)
+        {
+            try
+            {
+                await ws.CloseOutputAsync(WebSocketCloseStatus.EndpointUnavailable, "Server shutting down", cts.Token);
+            }
+            catch
+            {
+            }
+        }
+
+        try { ws.Dispose(); } catch { }
     }
 
     private sealed record ConnectionEntry(

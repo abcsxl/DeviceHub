@@ -1,15 +1,5 @@
 const BASE = new URLSearchParams(location.search).get('hub') || 'http://localhost:5000'
 
-let currentLang = 'en-US'
-
-export function setLanguage(lang: string) {
-  currentLang = lang
-}
-
-function headers(): Record<string, string> {
-  return { 'Accept-Language': currentLang }
-}
-
 function unwrap<T>(body: unknown): T {
   if (body && typeof body === 'object' && 'success' in (body as Record<string, unknown>)) {
     const apiRes = body as Record<string, unknown>
@@ -20,7 +10,7 @@ function unwrap<T>(body: unknown): T {
 }
 
 export async function getJson<T = unknown>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { headers: headers() })
+  const res = await fetch(`${BASE}${path}`)
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
   return res.json().then(body => unwrap<T>(body))
 }
@@ -28,7 +18,7 @@ export async function getJson<T = unknown>(path: string): Promise<T> {
 export async function putJson<T = unknown>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'PUT',
-    headers: { ...headers(), 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
@@ -38,7 +28,7 @@ export async function putJson<T = unknown>(path: string, body: unknown): Promise
 export async function postJson<T = unknown>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { ...headers(), 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
@@ -48,7 +38,6 @@ export async function postJson<T = unknown>(path: string, body?: unknown): Promi
 export async function delJson<T = unknown>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'DELETE',
-    headers: headers(),
   })
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
   return res.json().then(body => unwrap<T>(body))

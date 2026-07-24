@@ -8,7 +8,6 @@ using DeviceHub.Devices.Printer.Extensions;
 using DeviceHub.Devices.IdCard.Extensions;
 using DeviceHub.DriverLoader;
 using DeviceHub.Service.Api.Endpoints;
-using DeviceHub.Service.Api.Extensions;
 using DeviceHub.Service.Api.Models;
 using DeviceHub.Service.Api.Services;
 using DeviceHub.Service.Api.WebSocket;
@@ -84,8 +83,6 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod());
 });
 
-builder.Services.AddAppLocalization();
-
 var app = builder.Build();
 
 var serviceState = app.Services.GetRequiredService<ServiceState>();
@@ -97,7 +94,6 @@ app.Use(async (ctx, next) =>
     await next();
 });
 app.UseCors();
-app.UseAppLocalization();
 app.UseWebSockets(new WebSocketOptions
 {
     KeepAliveInterval = TimeSpan.FromSeconds(30)
